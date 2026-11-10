@@ -132,7 +132,7 @@ export class GeodeRenderer {
         .replace('#include <begin_vertex>', `
           // Les plaques dont le tirage est sous le niveau de fissure se rétractent et s'écartent.
           float open = smoothstep(aRand - 0.04, aRand + 0.04, iCrack);
-          vec3 shrunk = aCenter + (position - aCenter) * mix(0.93, 0.4, open) + normalize(aCenter) * open * 0.2;
+          vec3 shrunk = aCenter + (position - aCenter) * mix(0.975, 0.4, open) + normalize(aCenter) * open * 0.2;
           vec3 transformed = shrunk;
           vFlash = iFlash; vOpen = open;`);
       sh.fragmentShader = sh.fragmentShader
@@ -140,7 +140,7 @@ export class GeodeRenderer {
           varying float vFlash; varying float vOpen;`)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
           // L'intérieur des plaques ouvertes est éclairé par le cœur ; flash blanc chaud à l'impact.
-          totalEmissiveRadiance += vec3(1.0, 0.55, 0.12) * (gl_FrontFacing ? vOpen * 0.25 : 0.9);
+          totalEmissiveRadiance += vec3(1.0, 0.55, 0.12) * (gl_FrontFacing ? vOpen * 0.25 : 0.55);
           totalEmissiveRadiance += vec3(0.8, 0.62, 0.4) * vFlash;`);
     };
     this.shell = new THREE.InstancedMesh(shellGeo, shellMat, MAX);

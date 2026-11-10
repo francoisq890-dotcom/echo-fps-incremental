@@ -103,7 +103,7 @@ export class Weapon {
     this.flashMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(3.5, 2.2, 0.6), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
     const star = new THREE.Shape();
     for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2, r = i % 2 ? 0.07 : 0.24;
+      const a = (i / 12) * Math.PI * 2, r = i % 2 ? 0.05 : 0.15;
       if (i === 0) star.moveTo(Math.cos(a) * r, Math.sin(a) * r); else star.lineTo(Math.cos(a) * r, Math.sin(a) * r);
     }
     this.flash = add(new THREE.ShapeGeometry(star), this.flashMat, 0, 0, -0.8);
@@ -126,7 +126,7 @@ export class Weapon {
   celebrate(): void { this.flourish = Math.max(this.flourish, 0.6); }
 
   fire(): void {
-    this.recoilV += 9 + this.tier * 0.8;
+    this.recoilV += 3.2 + this.tier * 0.3;
     this.flashT = 1;
     this.heat = Math.min(1, this.heat + 0.25);
     this.flash.rotation.z = Math.random() * Math.PI;
@@ -139,7 +139,7 @@ export class Weapon {
     // Recul : ressort amorti.
     this.recoilV += (-this.recoil * 190 - this.recoilV * 20) * dt;
     this.recoil += this.recoilV * dt;
-    this.flashT = Math.max(0, this.flashT - dt * 16);
+    this.flashT = Math.max(0, this.flashT - dt * 22);
     this.heat = Math.max(0, this.heat - dt * 1.2);
     this.flourish = Math.max(0, this.flourish - dt * 1.5);
     this.lower += (this.lowerTarget - this.lower) * Math.min(1, dt * 9);
@@ -151,7 +151,7 @@ export class Weapon {
     const r = this.recoil;
     m.position.set(
       0.25 + this.swayX + Math.cos(bob) * 0.012 * walk,
-      -0.2 + this.swayY - Math.abs(Math.sin(bob)) * 0.016 * walk - landDip * 0.07 - this.lower * 0.42 + (airborne ? 0.012 : 0),
+      -0.2 + this.swayY - Math.abs(Math.sin(bob)) * 0.016 * walk - landDip * 0.07 - this.lower * 0.7 + (airborne ? 0.012 : 0),
       -0.64 + r * 0.9,
     );
     const f = this.flourish;
@@ -160,7 +160,7 @@ export class Weapon {
       0.04 + this.swayX * 2.2,
       this.swayX * -1.2 + Math.sin(f * Math.PI * 2) * 0.5 * f,
     );
-    const glow = 1 + this.heat * 1.4 + 0.12 * Math.sin(time * 5) + f * 2;
+    const glow = 0.8 + this.heat * 0.5 + 0.08 * Math.sin(time * 5) + f * 1.2;
     this.coreMat.color.setRGB(2.6 * glow, 1.5 * glow, 0.25 * glow);
     this.core.rotation.set(time * 0.9, time * 1.3, 0);
     this.core.scale.setScalar(1 + this.heat * 0.25 + f * 0.4);

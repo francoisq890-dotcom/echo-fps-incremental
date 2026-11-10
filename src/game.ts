@@ -28,7 +28,7 @@ import { PADS, START, TERMINAL, ZONE_NAMES } from './world/layout';
 type Mode = 'title' | 'play' | 'paused' | 'modal';
 type Phase = 'run' | 'rewind' | 'idle';
 
-const DOCK = { x: TERMINAL.x, z: TERMINAL.z + 4.4 };
+const DOCK = { x: TERMINAL.x, z: TERMINAL.z + 3.2 };
 const EYE = CFG.player.eyeHeight;
 
 interface Step { text: (g: Game) => string; hint: string; progress: (g: Game) => number; done: (g: Game) => boolean }
@@ -252,7 +252,6 @@ export class Game {
     this.lastWarn = 0;
     this.fireCooldown = 0.12;
     this.player.frozen = false;
-    this.echoes.syncAll(this.stats.duration);
     audio.syncLoop();
     if (this.pendingEcho) {
       const p = this.pendingEcho;
@@ -427,7 +426,7 @@ export class Game {
           break;
         }
         case 'blast':
-          this.rings.add(ev.x, ev.y, ev.z, ev.r, 0.5, 2.6, 1.0, 0.25);
+          this.rings.add(ev.x, ev.y, ev.z, ev.r, 0.45, 1.0, 0.4, 0.1);
           audio.blast();
           this.trauma = Math.min(1, this.trauma + 0.3);
           break;
@@ -492,8 +491,8 @@ export class Game {
       p.x = this.dockFrom.x + (DOCK.x - this.dockFrom.x) * e;
       p.z = this.dockFrom.z + (DOCK.z - this.dockFrom.z) * e;
       p.yaw = this.dockFrom.yaw + wrapAngle(0 - this.dockFrom.yaw) * e;
-      p.pitch = this.dockFrom.pitch + (0.2 - this.dockFrom.pitch) * e;
-      if (this.dockT >= 1) p.lookClamp = { yaw0: 0, yawR: 0.6, pitchMin: -0.2, pitchMax: 0.6 };
+      p.pitch = this.dockFrom.pitch + (0.27 - this.dockFrom.pitch) * e;
+      if (this.dockT >= 1) p.lookClamp = { yaw0: 0, yawR: 0.72, pitchMin: -0.15, pitchMax: 0.72 };
       return;
     }
     // Le viseur (ou le doigt / la souris libre) devient le curseur de l'écran.
@@ -746,7 +745,7 @@ export class Game {
       this.echoes.update(this.mode === 'modal' ? dt * 0.25 : dt, this.time, cam.position, this.player.yaw);
       this.terminal.update(dt, this.time, s, this.docked);
       const p = this.player;
-      this.weapon.group.visible = this.mode !== 'title';
+      this.weapon.group.visible = this.mode === 'play';
       this.weapon.update(dt, this.time, input.lookX, input.lookY, p.bob, p.speed, p.landDip, !p.grounded);
       this.muzzleLight.intensity = Math.max(0, this.muzzleLight.intensity - dt * 90);
       if (this.muzzleLight.intensity > 0) this.muzzleLight.position.copy(this.muzzleWorld(this.v2));

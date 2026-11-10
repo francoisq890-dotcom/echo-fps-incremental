@@ -73,7 +73,7 @@ export const CFG = {
   },
 
   magnet: {
-    baseRadius: 6,
+    baseRadius: 7.5,
     radiusPerLevel: 1.3,
     baseSpeed: 13,
     speedGrowth: 1.22,

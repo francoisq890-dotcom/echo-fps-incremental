@@ -109,11 +109,11 @@ export class Shards {
         const ease = u * u * (3 - 2 * u) * u; // départ lent, arrivée rapide
         const swirl = (1 - u) * (1 - u) * 1.3;
         const ang = this.seed[i] + u * 9;
-        const tx = target.x, ty = target.y - 0.45, tz = target.z;
+        const tx = target.x, ty = target.y - 0.95, tz = target.z;
         this.px[i] = this.sx[i] + (tx - this.sx[i]) * ease + Math.cos(ang) * swirl * u * 4 * (1 - u);
         this.py[i] = this.sy[i] + (ty - this.sy[i]) * ease + Math.sin(u * Math.PI) * 0.9 + Math.sin(ang) * swirl * u * 2 * (1 - u);
         this.pz[i] = this.sz[i] + (tz - this.sz[i]) * ease + Math.sin(ang) * swirl * u * 4 * (1 - u);
-        scale *= 1 - u * 0.55;
+        scale *= 1 - u * 0.85;
         if (u >= 1) { this.onArrive?.(); this.kill(i); continue; }
       } else {
         // Perdu : rétrécit et s'éteint.
@@ -383,7 +383,8 @@ export class Floaters {
   }
 
   value(x: number, y: number, z: number, value: number, combo: number): void {
-    this.add(x, y, z, '+' + fmt(value) + (combo >= 3 ? `  ×${combo}` : ''), Floaters.tier(value), 1.05);
+    void combo;
+    this.add(x, y, z, '+' + fmt(value), Floaters.tier(value), 1.05);
   }
 
   update(dt: number): void {

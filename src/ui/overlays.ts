@@ -114,7 +114,7 @@ export function showOffline(rep: OfflineReport, s: GameState, onClose: () => voi
   const r = open(`
     <div class="panel">
       <h2 style="margin-top:0">PENDANT TON ABSENCE</h2>
-      <p>Tu es parti ${esc(fmtDuration(rep.away))}. Tes <b style="color:var(--teal)">${rep.echoes} écho${rep.echoes > 1 ? 's' : ''}</b> ${rep.echoes > 1 ? 'ont' : 'a'} continué à rejouer tes boucles et ${rep.echoes > 1 ? 'ont' : 'a'} récolté :</p>
+      <p>Tu es parti ${esc(fmtDuration(rep.away))}. Tes <b style="color:var(--teal)">${rep.echoes} écho${rep.echoes > 1 ? 's' : ''}</b> ${rep.echoes > 1 ? 'ont' : 'a'} continué à rejouer tes boucles.</p>
       <div class="big-number">+${fmt(rep.gain)} <span style="font-size:28px">éclats</span></div>
       <p class="muted">${rep.capped
         ? `Production comptée sur ${esc(fmtDuration(rep.counted))} : c'est le plafond hors ligne (${capHours} h). L'amélioration « Mémoire longue » (BOUCLE) l'augmente.`
