@@ -71,4 +71,3 @@ Non traité, par choix : fusion des petits meshes de décor (piédestaux, pads),
 
 - **Modèles 3D générés** : hors budget ou en échec (détail dans `ASSETS.md`). Arme et échos sont procéduraux.
 - **Variantes d'images** : une seule par asset, la file illimitée n'acceptant qu'un job à la fois.
-- **Dépôt GitHub et lien jouable** : la création du dépôt public a été refusée par le garde-fou de permissions de la session. Le workflow de déploiement est prêt ; il reste à créer le dépôt et pousser (commandes dans le README).

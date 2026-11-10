@@ -15,13 +15,9 @@ npm run dev
 
 Puis ouvrir http://localhost:5173.
 
-**Lien en ligne : pas encore disponible.** Le workflow GitHub Pages est prêt (`.github/workflows/deploy.yml`), mais le dépôt GitHub n'a pas pu être créé pendant la session (voir « Limites connues »). Pour le publier :
+**Jouer en ligne : https://francoisq890-dotcom.github.io/echo-fps-incremental/**
 
-```bash
-gh repo create echo-fps-incremental --public --source=. --remote=origin --push
-```
-
-Ensuite, dans le dépôt : *Settings → Pages → Source : GitHub Actions*. Le jeu sera servi sur `https://<utilisateur>.github.io/echo-fps-incremental/`.
+Le site est redéployé par GitHub Actions à chaque push sur `main` (`.github/workflows/deploy.yml`).
 
 ## Contrôles
 
@@ -63,7 +59,6 @@ Captures regardées, dans `shots/` : [accueil](shots/01-accueil.png), [combat à
 
 ## Limites connues
 
-- **Pas de dépôt GitHub ni de lien jouable** : la création du dépôt public a été bloquée par les permissions de la session. Tout est commité en local.
 - **Jamais joué à la main.** Le jeu a été vérifié par un pilote automatique en navigateur headless, par captures et par simulation. La sensation réelle (sensibilité, recul, volume, difficulté du trajet) n'a été testée par personne.
 - **Le son n'a pas été écouté.** Il est synthétisé et s'exécute sans erreur, mais les niveaux et les timbres sont réglés sur le papier.
 - **Tactile non testé sur un vrai téléphone.**
@@ -75,7 +70,6 @@ Captures regardées, dans `shots/` : [accueil](shots/01-accueil.png), [combat à
 
 ## Reste à faire
 
-- Publier le dépôt et activer GitHub Pages ; mettre l'URL absolue dans `og:image`.
 - Faire jouer un humain 40 minutes et ajuster ce que la simulation ne voit pas.
 - Écouter et mixer le son.
 - Équilibrer la deuxième partie (après Effondrement) et ajouter du contenu de fin de partie.
