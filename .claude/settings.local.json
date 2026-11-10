@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__e6eb9258-708e-4475-aac1-f1aed22eed1c__balance",
+      "mcp__e6eb9258-708e-4475-aac1-f1aed22eed1c__models_explore",
+      "mcp__e6eb9258-708e-4475-aac1-f1aed22eed1c__jobs_wait",
+      "mcp__carrousel__search_catalog",
+      "PowerShell(cd C:\\\\Users\\\\quent\\\\ECHO; git init -b main 2>&1 | Select-Object -Last 1; New-Item -ItemType Directory -Force public\\\\assets, raw-assets | Out-Null; curl.exe -sS -o raw-assets\\\\da_board_1.png \"https://d8j0ntlcm91z4.cloudfront.net/user_3Lum1L7OHm9WaEWBWV3yshAkXOI/hf_20261110_121913_cc6124bd-5067-4a82-9450-c5aba75b8734.png\"; \\(Get-Item raw-assets\\\\da_board_1.png\\).Length)",
+      "mcp__carrousel__get_tool_content"
+    ]
+  }
+}

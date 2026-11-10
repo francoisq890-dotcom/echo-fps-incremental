@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>ÉCHO — tes parties deviennent tes générateurs</title>
+  <meta name="description" content="Un FPS incrémental en boucles de 12 secondes : chaque boucle laisse un écho qui rejoue tes mouvements et tes tirs, pour toujours." />
+  <meta property="og:title" content="ÉCHO" />
+  <meta property="og:description" content="Un FPS incrémental en boucles : tes propres parties deviennent tes générateurs." />
+  <meta property="og:image" content="./assets/og.jpg" />
+  <meta name="theme-color" content="#2b1830" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="world-ui"></div>
+
+  <div id="hud" class="hidden">
+    <div id="objective" class="hidden">
+      <div class="obj-kicker">OBJECTIF</div>
+      <div class="obj-text"></div>
+      <div class="obj-hint"></div>
+      <div class="obj-bar"><i></i></div>
+    </div>
+
+    <div id="wallet">
+      <div class="shards"><span class="gem"></span><span id="shard-count">0</span></div>
+      <div class="rate" id="rate-line"></div>
+      <div class="echoes" id="echo-line"></div>
+    </div>
+
+    <div id="reticle">
+      <svg viewBox="-50 -50 100 100" width="132" height="132">
+        <circle class="ring-bg" r="40" />
+        <circle class="ring-fg" id="loop-arc" r="40" transform="rotate(-90)" />
+      </svg>
+      <div class="dot"></div>
+      <div class="hitmark" id="hitmark"></div>
+      <div id="loop-time"></div>
+    </div>
+    <div id="loop-tally"></div>
+    <div id="combo" class="hidden"><b></b><span>COMBO</span><i></i></div>
+    <div id="tooltip" class="hidden"></div>
+    <div id="banner" class="hidden"><div class="b-title"></div><div class="b-sub"></div></div>
+    <div id="toasts"></div>
+  </div>
+
+  <div id="touch">
+    <div class="stick"><div class="knob"></div></div>
+    <button class="tbtn btn-fire" aria-label="Tirer">TIR</button>
+    <button class="tbtn btn-jump" aria-label="Sauter">SAUT</button>
+    <button class="tbtn btn-use" aria-label="Interagir">E</button>
+    <button class="tbtn btn-pause" aria-label="Pause">II</button>
+  </div>
+
+  <div id="overlay" class="hidden"></div>
+  <div id="fade"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
