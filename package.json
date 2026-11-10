@@ -10,7 +10,8 @@
     "sim": "tsx scripts/simulate.ts",
     "assets": "node scripts/process-assets.mjs",
     "shots": "node scripts/screenshots.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:move": "node scripts/test-movement.mjs"
   },
   "keywords": [],
   "author": "",

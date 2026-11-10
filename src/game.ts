@@ -497,7 +497,9 @@ export class Game {
 
   private updateTerminal(dt: number): void {
     const p = this.player;
-    if (this.input.interactPressed) {
+    // Au terminal, bouger suffit pour repartir : on ne reste jamais coincé devant l'écran.
+    const wantsOut = this.docked && this.dockT >= 1 && (this.input.moveX !== 0 || this.input.moveY !== 0 || this.input.jumpPressed);
+    if (this.input.interactPressed || wantsOut) {
       if (this.docked) this.undock();
       else if (this.nearTerminal() && this.phase !== 'rewind') this.dock();
     }
@@ -666,7 +668,7 @@ export class Game {
 
   private updateTooltip(): void {
     const p = this.player;
-    if (this.docked) { this.hud.tip(''); return; }
+    if (this.docked) { this.hud.tip(this.input.touch ? 'Bouton <kbd>E</kbd> pour quitter le terminal' : '<kbd>E</kbd> ou une touche de déplacement pour quitter le terminal'); return; }
     if (this.aimedGeode >= 0 && this.run) {
       const sim = this.run.sim, spec = sim.specs[this.aimedGeode];
       const hp = Math.max(0, sim.hp[this.aimedGeode]);
@@ -724,7 +726,7 @@ export class Game {
       if (input.pausePressed) { if (this.docked) this.undock(); else if (input.touch || !input.locked) this.pause(); }
       if (!this.docked && !input.locked && !input.touch && input.tap) input.requestLock();
       this.updateTerminal(dt);
-      this.player.update(dt, input, lvl(s, 'zone'), s.settings.sens, s.settings.invertY);
+      this.player.update(Math.min(real, 0.05), input, lvl(s, 'zone'), s.settings.sens, s.settings.invertY);
       for (const ev of this.player.events) {
         if (ev === 'jump') audio.jump();
         else if (ev === 'land') { audio.land(this.player.landImpact); this.trauma = Math.min(1, this.trauma + this.player.landImpact * 0.3); }

@@ -214,7 +214,7 @@ export class TerminalScreen {
 
     // ——— Pied : mode d'emploi ———
     g.fillStyle = C.faint; g.font = `500 20px ${FONT}`; g.textAlign = 'left';
-    g.fillText(this.touch ? 'Touche une ligne pour acheter  ·  bouton E pour quitter le terminal' : 'Vise une ligne et clique pour acheter  ·  E pour quitter le terminal', 44, H - 30);
+    g.fillText(this.touch ? 'Touche une ligne pour acheter  ·  bouton E pour quitter' : 'Vise une ligne et clique pour acheter  ·  E ou une touche de déplacement pour quitter', 44, H - 30);
 
     // ——— Curseur ———
     if (docked && this.cursor) {

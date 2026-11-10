@@ -2,6 +2,22 @@
  * Entrées : clavier (KeyboardEvent.code → AZERTY et QWERTY sans réglage), souris en pointer lock,
  * et tactile (joystick à gauche, visée à droite, boutons).
  */
+const FWD = 1, BACK = 2, LEFT = 4, RIGHT = 8;
+
+/**
+ * Directions d'une touche. On accepte à la fois la position physique (`code`) et le caractère
+ * produit (`key`) : selon le système, le navigateur ou un clavier distant, `code` suit parfois
+ * la lettre au lieu de la position. ZQSD et WASD marchent donc dans tous les cas.
+ */
+function moveBits(code: string, key: string): number {
+  let b = 0;
+  if (code === 'KeyW' || code === 'KeyZ' || code === 'ArrowUp' || key === 'z' || key === 'w' || key === 'ArrowUp') b |= FWD;
+  if (code === 'KeyS' || code === 'ArrowDown' || key === 's' || key === 'ArrowDown') b |= BACK;
+  if (code === 'KeyA' || code === 'KeyQ' || code === 'ArrowLeft' || key === 'q' || key === 'a' || key === 'ArrowLeft') b |= LEFT;
+  if (code === 'KeyD' || code === 'ArrowRight' || key === 'd' || key === 'ArrowRight') b |= RIGHT;
+  return b;
+}
+
 export class Input {
   moveX = 0; // droite +
   moveY = 0; // avant +
@@ -21,6 +37,8 @@ export class Input {
   uiMode = false;
   private tapStart: { id: number; x: number; y: number } | null = null;
   private keys = new Set<string>();
+  /** Touches de déplacement enfoncées : identifiant de touche → directions (bits). */
+  private held = new Map<string, number>();
   private joyId = -1; private joyX = 0; private joyY = 0; private joyOX = 0; private joyOY = 0;
   private lookId = -1; private lookPX = 0; private lookPY = 0;
   private touchFire = false;
@@ -34,14 +52,23 @@ export class Input {
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
       this.gesture();
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       this.keys.add(e.code);
-      if (e.code === 'Space') { this.jumpPressed = true; e.preventDefault(); }
-      if (e.code === 'KeyE' || e.code === 'KeyF') this.interactPressed = true;
-      if (e.code === 'Escape' || e.code === 'KeyP') this.pausePressed = true;
+      const dir = moveBits(e.code, key);
+      if (dir) this.held.set(e.code || key, dir);
+      if (e.code === 'Space' || key === ' ') { this.jumpPressed = true; e.preventDefault(); }
+      if (e.code === 'KeyE' || e.code === 'KeyF' || key === 'e' || key === 'f') this.interactPressed = true;
+      if (e.code === 'Escape' || key === 'Escape' || e.code === 'KeyP' || key === 'p') this.pausePressed = true;
       if (e.code === 'Tab') e.preventDefault();
     });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => { this.keys.clear(); this.fire = false; this.touchFire = false; });
+    window.addEventListener('keyup', (e) => {
+      this.keys.delete(e.code);
+      this.held.delete(e.code || (e.key.length === 1 ? e.key.toLowerCase() : e.key));
+    });
+    // Une touche relâchée pendant que la page n'a pas le focus ne nous prévient pas : on relâche tout.
+    window.addEventListener('blur', () => this.releaseAll());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.releaseAll(); });
     canvas.addEventListener('mousedown', (e) => {
       this.gesture();
       if (e.button !== 0) return;
@@ -59,10 +86,18 @@ export class Input {
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === canvas;
-      if (!this.locked) this.fire = false;
+      if (!this.locked) this.releaseAll();
       this.onLockChange?.(this.locked);
     });
     if (this.touch) this.setupTouch();
+  }
+
+  /** Relâche toutes les touches (perte de focus, pause, sortie du pointer lock) : aucune touche ne reste coincée. */
+  releaseAll(): void {
+    this.keys.clear();
+    this.held.clear();
+    this.fire = false;
+    this.touchFire = false;
   }
 
   private gesture(): void {
@@ -153,18 +188,23 @@ export class Input {
 
   /** À appeler une fois par image, avant de lire moveX / moveY. */
   poll(): void {
-    const k = this.keys;
+    let bits = 0;
+    for (const b of this.held.values()) bits |= b;
     let x = 0, y = 0;
-    // `code` désigne la touche physique : KeyW est « Z » sur un clavier AZERTY, KeyA est « Q ».
-    if (k.has('KeyW') || k.has('ArrowUp')) y += 1;
-    if (k.has('KeyS') || k.has('ArrowDown')) y -= 1;
-    if (k.has('KeyD') || k.has('ArrowRight')) x += 1;
-    if (k.has('KeyA') || k.has('ArrowLeft')) x -= 1;
+    if (bits & FWD) y += 1;
+    if (bits & BACK) y -= 1;
+    if (bits & RIGHT) x += 1;
+    if (bits & LEFT) x -= 1;
     x += this.joyX; y += this.joyY;
     const d = Math.hypot(x, y);
     if (d > 1) { x /= d; y /= d; }
     this.moveX = x; this.moveY = y;
     if (this.touch) this.fire = this.touchFire;
+  }
+
+  /** Simule une touche de déplacement (tests et captures headless). */
+  debugHold(id: string, bits: number): void {
+    if (bits) this.held.set(id, bits); else this.held.delete(id);
   }
 
   /** À appeler en fin d'image : remet à zéro les appuis ponctuels. */

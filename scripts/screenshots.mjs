@@ -75,7 +75,7 @@ async function autopilot(on) {
   await page.evaluate((on) => {
     const g = window.__echo;
     clearInterval(window.__aim);
-    g.input.fire = false; g.input.keys.delete('KeyW');
+    g.input.fire = false; g.input.debugHold('auto', 0);
     if (!on) return;
     window.__aim = setInterval(() => {
       const run = g.run; if (!run || g.docked) { g.input.fire = false; return; }
@@ -93,7 +93,7 @@ async function autopilot(on) {
       p.yaw = Math.atan2(-dx, -dz);
       p.pitch = Math.atan2(dy, Math.hypot(dx, dz));
       g.input.fire = true;
-      if (bd > 7) g.input.keys.add('KeyW'); else g.input.keys.delete('KeyW');
+      g.input.debugHold('auto', bd > 7 ? 1 : 0);
     }, 30);
   }, on);
 }
