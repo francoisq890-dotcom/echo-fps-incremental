@@ -3,3 +3,4 @@ dist
 raw-assets/_*
 shots/tmp
 *.log
+.claude
