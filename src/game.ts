@@ -82,6 +82,8 @@ export class Game {
   private offlinePending: OfflineReport | null = null;
   private tut = { breaks: 0, watch: 0, betterLoop: false, zoneBreak: false, cooldown: 0 };
   private lostHints = 0;
+  private pendingFlourish = 0;
+  private pausedFrames = 0;
   private v = new THREE.Vector3();
   private v2 = new THREE.Vector3();
   private dir = new THREE.Vector3();
@@ -99,6 +101,7 @@ export class Game {
     this.floaters = new Floaters(this.engine, worldUi);
     this.echoes = new EchoRenderer(this.engine, worldUi);
     this.terminal = new TerminalScreen(this.engine);
+    this.terminal.touch = this.input.touch;
     const sc = this.engine.scene;
     sc.add(this.arena.group, this.geodes.group, this.shards.mesh, this.debris.mesh, this.tracers.mesh, this.rings.mesh,
       this.echoes.group, this.terminal.group, this.muzzleLight);
@@ -187,7 +190,8 @@ export class Game {
     showPause(this.state, {
       onResume: () => this.resume(),
       onSettings: () => this.applySettings(),
-      onImport: (s) => { this.loadState(s); this.save(); },
+      // On rouvre le panneau sur le nouvel état (réglages, export et taux à jour).
+      onImport: (s) => { this.loadState(s); this.save(); this.mode = 'play'; this.pause(); this.hud.toast('Sauvegarde importée.'); },
       onReset: () => { wipeLocal(); this.loadState(newState()); closeOverlay(); this.showTitleScreen(); },
     });
   }
@@ -215,6 +219,10 @@ export class Game {
   loadState(s: GameState): void {
     this.state = s;
     this.stats = derive(s);
+    this.offlinePending = null;
+    this.pendingEcho = null;
+    this.engine.rewind = 0;
+    this.player.frozen = false;
     this.cancelLoop();
     this.undock(true);
     this.player.reset();
@@ -295,7 +303,7 @@ export class Game {
 
     if (outcome.kind === 'added') {
       this.pendingEcho = { id: outcome.echo.id, rec: outcome.echo.rec, rate: outcome.rate };
-      this.hud.showBanner(`Nouvel écho : +${fmtRate(outcome.rate)}/s`, `Il rejoue ta boucle (${fmt(result.shards)} éclats) pour toujours.`, 'good');
+      this.hud.showBanner(`Nouvel écho : +${fmtRate(outcome.rate)}/s`, `Il rejoue ta boucle (${fmt(result.shards * this.stats.globalMult)} éclats) pour toujours.`, 'good');
       if (s.tutorial >= 4) this.tut.betterLoop = true;
     } else if (outcome.kind === 'replaced') {
       this.pendingEcho = { id: outcome.echo.id, rec: outcome.echo.rec, rate: outcome.rate };
@@ -455,6 +463,8 @@ export class Game {
     this.docked = true;
     if (this.phase === 'run') this.cancelLoop();
     const p = this.player;
+    p.yaw = wrapAngle(p.yaw);
+    this.input.uiMode = true;
     this.dockFrom = { x: p.x, z: p.z, yaw: p.yaw, pitch: p.pitch };
     this.dockT = 0;
     p.frozen = true;
@@ -467,10 +477,17 @@ export class Game {
   private undock(silent = false): void {
     if (!this.docked) return;
     this.docked = false;
+    this.input.uiMode = false;
     this.player.lookClamp = null;
     this.player.frozen = this.phase === 'rewind';
     this.weapon.setLowered(false);
     this.terminal.setCursor(null);
+    // L'arme revient à l'écran : c'est maintenant qu'on montre ce que l'achat a changé.
+    if (this.pendingFlourish > 0) {
+      if (this.pendingFlourish >= 1) this.hud.toast('Ton arme a changé de palier.');
+      this.weapon.celebrate(this.pendingFlourish);
+      this.pendingFlourish = 0;
+    }
     if (!silent) {
       audio.uiClose();
       this.save();
@@ -531,12 +548,12 @@ export class Game {
       if (buy(s, action.id)) {
         audio.buy();
         this.terminal.flash(action.id);
-        this.weapon.celebrate();
         this.flash = Math.max(this.flash, 0.12);
         this.syncWorld(true);
+        this.pendingFlourish = Math.max(this.pendingFlourish, this.stats.weaponTier > before ? 1 : UPGRADE_BY_ID[action.id].family === 'weapon' ? 0.6 : 0);
         const u = UPGRADE_BY_ID[action.id];
         if (action.id === 'zone') audio.zoneUnlock();
-        else if (this.stats.weaponTier > before) this.hud.toast('Ton arme change de palier : regarde-la.');
+
         else if (u.family === 'arena' && lvl(s, action.id) === 1) this.hud.toast(`${u.name} : elles apparaîtront dès la prochaine boucle.`);
         this.hud.snapWallet(s.shards);
         this.refreshRates();
@@ -585,7 +602,7 @@ export class Game {
     { text: () => 'Regarde ton écho rejouer ta boucle', hint: 'La silhouette sarcelle refait tes gestes et te rapporte des éclats, même si tu ne fais rien.', progress: (g) => g.tut.watch / 8, done: (g) => g.tut.watch >= 8 || g.state.loops > 3 },
     { text: () => 'Achète une amélioration au terminal', hint: 'C\'est le grand écran devant le point de départ : approche-toi et appuie sur E.', progress: (g) => g.state.shards / g.cheapest(), done: (g) => Object.keys(g.state.levels).length > 0 },
     { text: () => 'Enregistre une meilleure boucle', hint: 'Une boucle qui récolte plus crée un écho plus fort.', progress: () => 0, done: (g) => g.tut.betterLoop || g.state.echoes.length >= 3 },
-    { text: (g) => `Remplis tes ${g.stats.slots} emplacements d'échos`, hint: 'Chaque boucle réussie ajoute un écho tant qu\'il reste de la place.', progress: (g) => g.state.echoes.length / g.stats.slots, done: (g) => g.state.echoes.length >= Math.min(3, g.stats.slots) },
+    { text: () => 'Fais tourner 3 échos en même temps', hint: 'Chaque boucle réussie ajoute un écho tant qu\'il reste un emplacement libre.', progress: (g) => g.state.echoes.length / 3, done: (g) => g.state.echoes.length >= 3 },
     { text: () => 'Débloque les Terrasses', hint: 'Terminal → ARÈNE → Expansion. Les géodes y valent ×4.', progress: (g) => g.state.shards / costOf(g.state, 'zone'), done: (g) => lvl(g.state, 'zone') >= 1 },
     { text: () => 'Brise une géode des Terrasses', hint: 'Monte par une des trois rampes au bord de l\'arène.', progress: () => 0, done: (g) => g.tut.zoneBreak || lvl(g.state, 'zone') >= 2 },
     { text: () => 'Atteins 8 échos', hint: 'Terminal → BOUCLE → Emplacements d\'échos.', progress: (g) => g.state.echoes.length / 8, done: (g) => g.state.echoes.length >= 8 },
@@ -654,7 +671,7 @@ export class Game {
       const sim = this.run.sim, spec = sim.specs[this.aimedGeode];
       const hp = Math.max(0, sim.hp[this.aimedGeode]);
       const f = (x: number) => (x % 1 === 0 ? x.toFixed(0) : x.toFixed(1).replace('.', ','));
-      this.hud.tip(`${GEODE_NAME[spec.type]} · vaut <em>${fmt(Math.round(spec.value * this.stats.globalMult))}</em> éclats · ${f(hp)} / ${f(spec.hp)} PV`);
+      this.hud.tip(`${GEODE_NAME[spec.type]} · vaut <em>${fmt(Math.round(spec.value * sim.params.valueMult * this.stats.globalMult))}</em> éclats · ${f(hp)} / ${f(spec.hp)} PV`);
       return;
     }
     if (this.nearTerminal() && this.phase !== 'rewind') {
@@ -683,6 +700,7 @@ export class Game {
       this.perf.fps = this.frames / this.fpsT;
       this.perf.frameMs = (this.fpsT / this.frames) * 1000;
       this.frames = 0; this.fpsT = 0;
+      if (this.mode === 'play' && !document.hidden) this.engine.adapt(this.perf.fps, 0.5);
     }
     this.step(real);
   };
@@ -765,9 +783,9 @@ export class Game {
         let toBeat: number | null = null;
         if (s.echoes.length >= this.stats.slots && s.echoes.length > 0) {
           const w = s.echoes[weakestIndex(s)];
-          toBeat = Math.floor((w.raw / w.duration) * this.stats.duration);
+          toBeat = Math.floor((w.raw / w.duration) * this.stats.duration * this.stats.globalMult);
         }
-        this.hud.loopTally(sim.result.shards, toBeat, s.tutorial >= 1);
+        this.hud.loopTally(sim.result.shards * this.stats.globalMult, toBeat, s.tutorial >= 1);
       } else this.hud.loopTally(0, null, false);
       this.hud.onTarget(this.aimedGeode >= 0);
     }
@@ -782,6 +800,9 @@ export class Game {
     this.saveTimer += real;
     if (this.saveTimer >= CFG.save.autosaveSeconds && this.mode !== 'title') { this.saveTimer = 0; this.save(); }
 
+    // En pause plus rien ne bouge : on ne redessine que de temps en temps (redimensionnement).
+    if (this.mode === 'paused' && this.pausedFrames++ % 12 !== 0) { input.endFrame(); return; }
+    if (this.mode !== 'paused') this.pausedFrames = 0;
     this.engine.render(this.time);
     this.perf.drawCalls = this.engine.renderer.info.render.calls;
     this.engine.renderer.info.reset();

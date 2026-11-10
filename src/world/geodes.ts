@@ -26,7 +26,7 @@ export const GEODE_NAME: Record<GeodeType, string> = {
 
 function buildShell(): THREE.BufferGeometry {
   // Icosaèdre subdivisé, sommets bosselés (roche), puis chaque face devient une plaque indépendante.
-  const src = new THREE.IcosahedronGeometry(1, 1).toNonIndexed();
+  const src = new THREE.IcosahedronGeometry(1, 1);
   const pos = src.attributes.position;
   const rng = mulberry32(42);
   const bump = new Map<string, number>();

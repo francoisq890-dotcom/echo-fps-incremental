@@ -104,7 +104,7 @@ export class Engine {
     this.loadSky();
 
     const size = r.getDrawingBufferSize(new THREE.Vector2());
-    const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
+    const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 2 });
     const composer = (this.composer = new EffectComposer(r, target));
     composer.addPass(new RenderPass(scene, this.camera));
     const viewPass = new RenderPass(this.viewScene, this.viewCamera);
@@ -154,6 +154,18 @@ export class Engine {
     tex.repeat.set(repeat, repeat);
     tex.anisotropy = 8;
     return tex;
+  }
+
+  /** Résolution adaptative : on baisse le pixel ratio si le débit d'images chute, on le remonte doucement sinon. */
+  private maxRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+  private lowT = 0;
+  private highT = 0;
+  adapt(fps: number, dt: number): void {
+    const pr = this.renderer.getPixelRatio();
+    this.lowT = fps < 50 ? this.lowT + dt : 0;
+    this.highT = fps > 58 ? this.highT + dt : 0;
+    if (this.lowT > 1.5 && pr > 0.75) { this.lowT = 0; this.renderer.setPixelRatio(Math.max(0.75, pr - 0.25)); this.resize(); }
+    else if (this.highT > 8 && pr < this.maxRatio) { this.highT = 0; this.renderer.setPixelRatio(Math.min(this.maxRatio, pr + 0.25)); this.resize(); }
   }
 
   resize(): void {

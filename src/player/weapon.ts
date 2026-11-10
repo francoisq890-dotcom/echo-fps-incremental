@@ -123,7 +123,7 @@ export class Weapon {
   }
 
   /** Petite animation de satisfaction après un achat. */
-  celebrate(): void { this.flourish = Math.max(this.flourish, 0.6); }
+  celebrate(amount = 0.6): void { this.flourish = Math.max(this.flourish, amount); }
 
   fire(): void {
     this.recoilV += 3.2 + this.tier * 0.3;

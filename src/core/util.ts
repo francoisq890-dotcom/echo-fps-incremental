@@ -38,6 +38,7 @@ export function fmt(n: number): string {
 
 /** Taux par seconde : garde une décimale sous 100. */
 export function fmtRate(n: number): string {
+  if (n < 10) return (Math.round(n * 100) / 100).toFixed(2).replace('.', ',');
   if (n < 100) return (Math.round(n * 10) / 10).toFixed(1).replace('.', ',');
   return fmt(n);
 }

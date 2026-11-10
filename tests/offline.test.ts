@@ -165,22 +165,23 @@ describe('applyOffline', () => {
     expect(s.lastSeen).toBe(now);
   });
 
-  it('retourne null sous CFG.offline.minSeconds, sans crédit, mais remet l\'horloge', () => {
+  it('retourne null sous CFG.offline.minSeconds, pas d\'écran mais crédit, et remet l\'horloge', () => {
     const s = stateWithEchoes();
     const now = T0 + Math.floor(CFG.offline.minSeconds * 1000 * 0.5);
-    // Le gain théorique existe : c'est bien la durée minimale qui bloque.
-    expect(computeOffline(s, now).gain).toBeGreaterThan(0);
+    // Sous le seuil : pas d'écran de retour (null), mais l'absence est quand même créditée.
+    const gain = computeOffline(s, now).gain;
+    expect(gain).toBeGreaterThan(0);
     expect(applyOffline(s, now)).toBeNull();
-    expect(s.shards).toBe(0);
-    expect(s.runEarned).toBe(0);
-    expect(s.totalEarned).toBe(0);
+    expect(s.shards).toBe(gain);
+    expect(s.runEarned).toBe(gain);
+    expect(s.totalEarned).toBe(gain);
     expect(s.lastSeen).toBe(now);
   });
 
   it('juste sous le seuil → null ; au seuil → rapport', () => {
     const under = stateWithEchoes();
     expect(applyOffline(under, T0 + CFG.offline.minSeconds * 1000 - 1)).toBeNull();
-    expect(under.shards).toBe(0);
+    expect(under.shards).toBeGreaterThan(0);
     const at = stateWithEchoes();
     const rep = applyOffline(at, T0 + CFG.offline.minSeconds * 1000);
     expect(rep).not.toBeNull();

@@ -3,7 +3,7 @@
  * La collision s'appuie sur les formes logiques de world/layout.ts.
  */
 import { CFG } from '../config';
-import { clamp } from '../core/util';
+import { clamp, wrapAngle } from '../core/util';
 import { PADS, START, groundAt, resolveSolids } from '../world/layout';
 import type { Input } from './input';
 
@@ -46,10 +46,11 @@ export class Player {
     const k = 0.0022 * sens;
     this.yaw -= input.lookX * k;
     this.pitch -= input.lookY * k * (invertY ? -1 : 1);
+    this.yaw = wrapAngle(this.yaw);
     this.pitch = clamp(this.pitch, -1.5, 1.5);
     if (this.lookClamp) {
       const c = this.lookClamp;
-      this.yaw = clamp(this.yaw, c.yaw0 - c.yawR, c.yaw0 + c.yawR);
+      this.yaw = c.yaw0 + clamp(wrapAngle(this.yaw - c.yaw0), -c.yawR, c.yawR);
       this.pitch = clamp(this.pitch, c.pitchMin, c.pitchMax);
     }
 

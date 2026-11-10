@@ -17,6 +17,9 @@ export class Input {
   touch = false;
   /** Sur mobile, le tir part tout seul quand le viseur est sur une géode. */
   autoFire = false;
+  /** Vrai quand le joueur est amarré au terminal : un toucher bref devient un « clic » sur l'écran. */
+  uiMode = false;
+  private tapStart: { id: number; x: number; y: number } | null = null;
   private keys = new Set<string>();
   private joyId = -1; private joyX = 0; private joyY = 0; private joyOX = 0; private joyOY = 0;
   private lookId = -1; private lookPX = 0; private lookPY = 0;
@@ -38,7 +41,7 @@ export class Input {
       if (e.code === 'Tab') e.preventDefault();
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => { this.keys.clear(); this.fire = false; });
+    window.addEventListener('blur', () => { this.keys.clear(); this.fire = false; this.touchFire = false; });
     canvas.addEventListener('mousedown', (e) => {
       this.gesture();
       if (e.button !== 0) return;
@@ -88,7 +91,10 @@ export class Input {
     const bind = (sel: string, down: () => void, up?: () => void) => {
       const el = root.querySelector<HTMLElement>(sel)!;
       el.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); this.gesture(); down(); }, { passive: false });
-      if (up) el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); up(); }, { passive: false });
+      if (up) {
+        el.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); up(); }, { passive: false });
+        el.addEventListener('touchcancel', () => up());
+      }
     };
     bind('.btn-fire', () => (this.touchFire = true), () => (this.touchFire = false));
     bind('.btn-jump', () => (this.jumpPressed = true));
@@ -99,12 +105,17 @@ export class Input {
       e.preventDefault();
       this.gesture();
       for (const t of Array.from(e.changedTouches)) {
+        if (this.uiMode) {
+          // Terminal : pas de joystick ; on attend le relâchement pour distinguer un toucher d'un glissé.
+          if (!this.tapStart) this.tapStart = { id: t.identifier, x: t.clientX, y: t.clientY };
+          if (this.lookId < 0) { this.lookId = t.identifier; this.lookPX = t.clientX; this.lookPY = t.clientY; }
+          continue;
+        }
         if (t.clientX < window.innerWidth * 0.4 && this.joyId < 0) {
           this.joyId = t.identifier; this.joyOX = t.clientX; this.joyOY = t.clientY;
           stick.style.left = `${t.clientX}px`; stick.style.top = `${t.clientY}px`; stick.classList.add('on');
         } else if (this.lookId < 0) {
           this.lookId = t.identifier; this.lookPX = t.clientX; this.lookPY = t.clientY;
-          this.tap = { x: t.clientX, y: t.clientY };
         }
       }
     }, { passive: false });
@@ -126,6 +137,10 @@ export class Input {
     }, { passive: false });
     const end = (e: TouchEvent) => {
       for (const t of Array.from(e.changedTouches)) {
+        if (this.tapStart && t.identifier === this.tapStart.id) {
+          if (e.type === 'touchend' && Math.hypot(t.clientX - this.tapStart.x, t.clientY - this.tapStart.y) < 14) this.tap = { x: t.clientX, y: t.clientY };
+          this.tapStart = null;
+        }
         if (t.identifier === this.joyId) {
           this.joyId = -1; this.joyX = this.joyY = 0;
           stick.classList.remove('on'); knob.style.transform = '';

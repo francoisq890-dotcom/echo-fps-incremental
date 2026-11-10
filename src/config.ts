@@ -19,7 +19,7 @@ export interface UpgradeDef {
   /** Index de l'icône dans la grille 5×4 générée (ligne × 5 + colonne). */
   icon: number;
   /** Texte de l'effet à un niveau donné (affiché « maintenant → ensuite »). */
-  fx: (lvl: number) => string;
+  fx: (lvl: number, perks?: Record<string, number>) => string;
   /** Autre amélioration requise (id, niveau minimal). */
   req?: [string, number];
 }
@@ -138,6 +138,7 @@ export const CFG = {
 };
 
 const pct = (x: number) => `${Math.round(x * 100)} %`;
+const rel = (t: GeodeType) => Math.round(CFG.geodes.types[t].value / CFG.geodes.types.basic.value);
 const fix1 = (x: number) => (Math.round(x * 10) / 10).toString().replace('.', ',');
 
 export function damageAt(lvl: number): number {
@@ -150,7 +151,7 @@ export const UPGRADES: UpgradeDef[] = [
     id: 'dmg', family: 'weapon', name: 'Puissance', icon: 0,
     desc: 'Chaque tir retire plus de points de structure aux géodes.',
     baseCost: 12, growth: 1.5, max: 40,
-    fx: (l) => `${fix1(damageAt(l))} dégâts / tir`,
+    fx: (l, p) => `${fix1(damageAt(l) * Math.pow(1.5, p?.dmg ?? 0))} dégâts / tir`,
   },
   {
     id: 'rate', family: 'weapon', name: 'Cadence', icon: 1,
@@ -160,7 +161,7 @@ export const UPGRADES: UpgradeDef[] = [
   },
   {
     id: 'rico', family: 'weapon', name: 'Ricochet', icon: 2,
-    desc: 'Le tir rebondit vers la géode la plus proche (60 % des dégâts par rebond).',
+    desc: `Le tir rebondit vers la géode la plus proche (${pct(CFG.weapon.ricochetFalloff)} des dégâts à chaque rebond).`,
     baseCost: 350, growth: 7, max: 4,
     fx: (l) => (l === 0 ? 'aucun rebond' : `${l} rebond${l > 1 ? 's' : ''}`),
   },
@@ -181,7 +182,7 @@ export const UPGRADES: UpgradeDef[] = [
     id: 'slots', family: 'loop', name: 'Emplacements d\'échos', icon: 5,
     desc: 'Nombre d\'échos qui rejouent tes boucles en même temps.',
     baseCost: 120, growth: 2.1, max: CFG.echo.maxSlots - CFG.echo.baseSlots,
-    fx: (l) => `${CFG.echo.baseSlots + l} échos max`,
+    fx: (l, p) => `${Math.min(CFG.echo.maxSlots, CFG.echo.baseSlots + l + 2 * (p?.slots ?? 0))} échos max`,
   },
   {
     id: 'power', family: 'loop', name: 'Puissance des échos', icon: 6,
@@ -199,7 +200,7 @@ export const UPGRADES: UpgradeDef[] = [
     id: 'offline', family: 'loop', name: 'Mémoire longue', icon: 8,
     desc: 'Durée maximale pendant laquelle tes échos produisent quand le jeu est fermé.',
     baseCost: 1500, growth: 4, max: 8,
-    fx: (l) => `${CFG.offline.baseCapHours + CFG.offline.capHoursPerLevel * l} h hors ligne`,
+    fx: (l, p) => `${CFG.offline.baseCapHours + CFG.offline.capHoursPerLevel * l + 6 * (p?.offline ?? 0)} h hors ligne`,
   },
   // ——— Arène ———
   {
@@ -243,7 +244,7 @@ export const UPGRADES: UpgradeDef[] = [
     id: 'mrad', family: 'magnet', name: 'Rayon d\'aimant', icon: 15,
     desc: 'Distance à laquelle les éclats tombés au sol sont aspirés vers toi. Les éclats non ramassés à la fin de la boucle sont perdus.',
     baseCost: 30, growth: 1.7, max: 14,
-    fx: (l) => `${fix1(CFG.magnet.baseRadius + CFG.magnet.radiusPerLevel * l)} m`,
+    fx: (l, p) => `${fix1((CFG.magnet.baseRadius + CFG.magnet.radiusPerLevel * l) * (1 + 0.4 * (p?.magnet ?? 0)))} m`,
   },
   {
     id: 'mspd', family: 'magnet', name: 'Vitesse d\'aimant', icon: 16,

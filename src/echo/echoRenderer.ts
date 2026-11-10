@@ -367,7 +367,7 @@ export class EchoRenderer {
       const k = this.ghostSize[i] * (this.ghostBurst[i] ? 0.8 + (1 - life) * 0.9 : 0.9);
       m.compose(p.fromArray(this.ghostP, i * 3), q.identity(), s.setScalar(k));
       this.ghosts.setMatrixAt(i, m);
-      teal.set(PALETTE.teal).multiplyScalar(life * 0.7);
+      teal.set(PALETTE.teal).multiplyScalar(life * 0.4);
       this.ghosts.setColorAt(i, teal);
     }
     this.ghosts.count = this.ghostN;

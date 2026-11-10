@@ -81,6 +81,7 @@ export type BuyBlock = 'max' | 'locked' | 'poor' | null;
 export function buyBlock(s: GameState, id: string): BuyBlock {
   const u = UPGRADE_BY_ID[id];
   if (lvl(s, id) >= u.max) return 'max';
+  if (id === 'slots' && derive(s).slots >= CFG.echo.maxSlots) return 'max';
   if (u.req && lvl(s, u.req[0]) < u.req[1]) return 'locked';
   if (s.shards < costOf(s, id)) return 'poor';
   return null;
@@ -261,9 +262,10 @@ export function computeOffline(s: GameState, now: number): OfflineReport {
 export function applyOffline(s: GameState, now: number): OfflineReport | null {
   const rep = computeOffline(s, now);
   s.lastSeen = now;
-  if (rep.away < CFG.offline.minSeconds || rep.gain <= 0) return null;
+  if (rep.gain <= 0) return null;
+  // Toute absence est créditée ; le seuil ne décide que de l'affichage de l'écran de retour.
   earn(s, rep.gain);
-  return rep;
+  return rep.away >= CFG.offline.minSeconds ? rep : null;
 }
 
 // ——— Prestige : l'Effondrement ———

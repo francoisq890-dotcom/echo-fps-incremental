@@ -4,7 +4,7 @@
  * avec le viseur et on clique (on « tire ») pour acheter. Pas de panneau plaqué sur l'écran.
  */
 import * as THREE from 'three';
-import { FAMILIES, UPGRADES, UPGRADE_BY_ID, type UpgradeDef } from '../config';
+import { CFG, FAMILIES, UPGRADES, UPGRADE_BY_ID, type UpgradeDef } from '../config';
 import { fmt, fmtRate } from '../core/util';
 import { buyBlock, costOf, derive, lvl, prestigePreview, totalRate, type GameState } from '../economy/state';
 import type { Engine } from '../render/engine';
@@ -38,6 +38,8 @@ export class TerminalScreen {
   private denyId = '';
   private denyT = 0;
   private lastDraw = -1;
+  private idleKey = '';
+  touch = false;
   private halo: THREE.Mesh;
   tab = 0;
   dirty = true;
@@ -93,13 +95,13 @@ export class TerminalScreen {
 
   /** Curseur en coordonnées UV de l'écran (0..1), ou null si le viseur n'est pas dessus. */
   setCursor(uv: { x: number; y: number } | null): boolean {
-    const prev = this.hover;
+    const prev = this.hover, pc = this.cursor;
     if (!uv) { this.cursor = null; this.hover = null; }
     else {
-      this.cursor = { x: uv.x * W, y: (1 - uv.y) * H };
+      this.cursor = { x: Math.round(uv.x * W), y: Math.round((1 - uv.y) * H) };
       this.hover = this.regions.find((r) => this.cursor!.x >= r.x && this.cursor!.x <= r.x + r.w && this.cursor!.y >= r.y && this.cursor!.y <= r.y + r.h) ?? null;
     }
-    this.dirty = true;
+    if (this.hover !== prev || pc?.x !== this.cursor?.x || pc?.y !== this.cursor?.y) this.dirty = true;
     return this.hover !== prev && this.hover !== null;
   }
 
@@ -122,8 +124,12 @@ export class TerminalScreen {
     const afford = this.affordableCount(s);
     (this.halo.material as THREE.MeshBasicMaterial).opacity = !docked && afford > 0 ? 0.35 + 0.3 * Math.sin(time * 4) : 0;
     this.halo.scale.setScalar(1 + 0.04 * Math.sin(time * 4));
-    const interval = docked ? 0.1 : 0.6;
-    if (this.flashT > 0 || this.denyT > 0 || (this.dirty && time - this.lastDraw > 0.033) || time - this.lastDraw > interval) {
+    // En veille, l'écran ne change que si le nombre d'achats possibles change : pas de ré-upload inutile.
+    const key = `${docked}|${afford}|${this.tab}|${!!this.icons}`;
+    if (!docked && key !== this.idleKey) this.dirty = true;
+    this.idleKey = key;
+    const stale = docked && time - this.lastDraw > 0.2;
+    if (this.flashT > 0 || this.denyT > 0 || (this.dirty && time - this.lastDraw > 0.033) || stale) {
       this.draw(s, docked, time, afford);
       this.lastDraw = time;
       this.dirty = false;
@@ -208,7 +214,7 @@ export class TerminalScreen {
 
     // ——— Pied : mode d'emploi ———
     g.fillStyle = C.faint; g.font = `500 20px ${FONT}`; g.textAlign = 'left';
-    g.fillText('Vise une ligne et clique pour acheter  ·  E pour quitter le terminal', 44, H - 30);
+    g.fillText(this.touch ? 'Touche une ligne pour acheter  ·  bouton E pour quitter le terminal' : 'Vise une ligne et clique pour acheter  ·  E pour quitter le terminal', 44, H - 30);
 
     // ——— Curseur ———
     if (docked && this.cursor) {
@@ -266,13 +272,13 @@ export class TerminalScreen {
       g.fillText(`NIV. ${level}${u.max < 100 ? ' / ' + u.max : ''}`, x0 + 122 + nameW, y + 39);
       // Effet : maintenant → ensuite.
       g.font = `500 23px ${FONT}`;
-      const now = u.fx(level);
+      const now = u.fx(level, s.perks);
       g.fillStyle = C.rose;
       g.fillText(now, x0 + 108, y + 76);
       if (level < u.max) {
         const wNow = g.measureText(now).width;
         g.fillStyle = C.faint; g.fillText('→', x0 + 118 + wNow, y + 76);
-        g.fillStyle = C.cream; g.fillText(u.fx(level + 1), x0 + 148 + wNow, y + 76);
+        g.fillStyle = C.cream; g.fillText(u.fx(level + 1, s.perks), x0 + 148 + wNow, y + 76);
       }
       // Bouton de coût.
       const bw = 190, bh = 58, bx = x0 + rowW - bw - 16, by = y + (rowH - bh) / 2;
@@ -335,11 +341,11 @@ export class TerminalScreen {
     let y = this.wrap(u.desc, px + 28, py + 200, pw - 56, 34);
     y += 22;
     g.fillStyle = C.dim; g.font = `600 20px ${FONT}`; g.fillText('MAINTENANT', px + 28, y);
-    g.fillStyle = C.rose; g.font = `600 28px ${FONT}`; y = this.wrap(u.fx(level), px + 28, y + 36, pw - 56, 34);
+    g.fillStyle = C.rose; g.font = `600 28px ${FONT}`; y = this.wrap(u.fx(level, s.perks), px + 28, y + 36, pw - 56, 34);
     if (level < u.max) {
       y += 14;
       g.fillStyle = C.dim; g.font = `600 20px ${FONT}`; g.fillText('AU NIVEAU SUIVANT', px + 28, y);
-      g.fillStyle = C.cream; g.font = `600 28px ${FONT}`; y = this.wrap(u.fx(level + 1), px + 28, y + 36, pw - 56, 34);
+      g.fillStyle = C.cream; g.font = `600 28px ${FONT}`; y = this.wrap(u.fx(level + 1, s.perks), px + 28, y + 36, pw - 56, 34);
     }
     g.font = `600 24px ${FONT}`;
     const cost = costOf(s, u.id);
@@ -361,7 +367,7 @@ export class TerminalScreen {
     g.fillStyle = C.cream; g.font = `700 52px ${FONT}`;
     g.fillText('L\'EFFONDREMENT', x + 220, y + 92);
     g.fillStyle = C.dim; g.font = `500 26px ${FONT}`;
-    this.wrap('Condense tous tes échos en Fragments temporels. Tu recommences de zéro (éclats, améliorations, échos), mais chaque Fragment multiplie tous tes gains pour toujours, et tu choisis un bonus permanent parmi trois.', x + 220, y + 136, w - 260, 36);
+    this.wrap(`Condense tous tes échos en Fragments temporels. Tu recommences de zéro (éclats, améliorations, échos), mais chaque Fragment augmente tous tes gains de ${Math.round(CFG.prestige.multPerFragment * 100)} % pour toujours, et tu choisis un bonus permanent parmi trois.`, x + 220, y + 136, w - 260, 36);
 
     const bx = x + 36, by = y + 300, bw = w - 72;
     if (!pv.available) {

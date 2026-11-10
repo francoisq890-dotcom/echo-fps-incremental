@@ -2,6 +2,7 @@
  * Écrans plein cadre : titre, pause/réglages (export/import), retour hors ligne, Effondrement.
  */
 import { fmt, fmtDuration, fmtRate } from '../core/util';
+import { CFG } from '../config';
 import { derive, perk, perkChoices, prestigePreview, totalRate, type GameState, type OfflineReport } from '../economy/state';
 import { exportSave, importSave } from '../economy/save';
 
@@ -66,7 +67,7 @@ export function showPause(s: GameState, h: PauseHandlers): void {
         <label>Inverser l'axe Y</label><input type="checkbox" id="s-inv" ${st.invertY ? 'checked' : ''} style="justify-self:start;width:22px;height:22px"><span></span>
       </div>
       <h2>SAUVEGARDE</h2>
-      <p class="muted">Sauvegarde automatique toutes les 10 s. Exporte ce texte pour changer d'appareil.</p>
+      <p class="muted">Sauvegarde automatique toutes les ${CFG.save.autosaveSeconds} s. Exporte ce texte pour changer d'appareil.</p>
       <textarea class="save" id="save-text" spellcheck="false" placeholder="Colle ici une sauvegarde exportée, puis clique sur Importer."></textarea>
       <div class="msg" id="save-msg"></div>
       <div class="row">
@@ -132,7 +133,7 @@ export function showPrestige(s: GameState, onConfirm: (perkId: string) => void, 
   const r = open(`
     <div class="panel wide">
       <h1>L'EFFONDREMENT</h1>
-      <p>Tes ${pv.echoesLost} échos se condensent en <b style="color:var(--amber)">${fmt(pv.gain)} Fragments temporels</b>. Chaque Fragment augmente tous tes gains de 20 %, pour toujours.</p>
+      <p>Tes ${pv.echoesLost} échos se condensent en <b style="color:var(--amber)">${fmt(pv.gain)} Fragments temporels</b>. Chaque Fragment augmente tous tes gains de ${Math.round(CFG.prestige.multPerFragment * 100)} %, pour toujours.</p>
       <div class="compare">
         <div class="col">
           <h3>AVANT</h3>
@@ -151,7 +152,7 @@ export function showPrestige(s: GameState, onConfirm: (perkId: string) => void, 
           <ul>
             <li>${fmt(pv.fragmentsAfter)} Fragments <span class="muted">(+${fmt(pv.gain)})</span></li>
             <li>0 écho : à ré-enregistrer, chacun rapportera ×${m(pv.multAfter / pv.multBefore)}</li>
-            <li>${perk(s, 'start') > 0 ? fmt(400 * perk(s, 'start') * pv.fragmentsAfter) : '0'} éclat en poche</li>
+            <li id="pr-pocket"></li>
             <li>Améliorations remises à zéro</li>
           </ul>
         </div>
@@ -167,11 +168,17 @@ export function showPrestige(s: GameState, onConfirm: (perkId: string) => void, 
       <p class="muted" style="font-size:14px;margin-top:14px">Durée de boucle actuelle : ${st.duration} s · tu gardes tes Fragments, tes bonus et tes réglages.</p>
     </div>`);
   let chosen = '';
+  const pocket = () => {
+    const n = 400 * (perk(s, 'start') + (chosen === 'start' ? 1 : 0)) * pv.fragmentsAfter;
+    r.querySelector('#pr-pocket')!.textContent = `${fmt(n)} éclat${n > 1 ? 's' : ''} en poche`;
+  };
+  pocket();
   const go = r.querySelector<HTMLButtonElement>('#pr-go')!;
   r.querySelectorAll<HTMLButtonElement>('.perk').forEach((b) => b.addEventListener('click', () => {
     chosen = b.dataset.id!;
     r.querySelectorAll('.perk').forEach((x) => x.classList.toggle('sel', x === b));
     go.disabled = false;
+    pocket();
     go.textContent = 'DÉCLENCHER L\'EFFONDREMENT';
   }));
   go.addEventListener('click', () => chosen && onConfirm(chosen));
