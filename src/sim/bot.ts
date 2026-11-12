@@ -10,11 +10,15 @@
  *  - il doit aller chercher les éclats tombés hors du rayon de son aimant ;
  *  - pour changer de zone, il passe par les vrais points de passage :
  *    pied de rampe → terrasse → pad (saut de `pad.time`) → anneau → pad → aiguille.
+ *
+ * Armes et éléments : avec le Fracasseur, le bot se rapproche à moins de ~12 m avant de tirer.
+ * À chaque tir, il prend l'élément débloqué qui bat la géode visée ; sinon son élément par
+ * défaut, sauf si la géode y résiste (il tire alors neutre).
  */
-import { CFG } from '../config';
+import { CFG, ELEM_BEATS, w2RateMult } from '../config';
 import { mulberry32 } from '../core/util';
 import { LoopRun, tickCount, type Recording } from '../echo/recording';
-import type { LoopResult } from '../echo/loopsim';
+import { elemMult, shotKind, type LoopResult } from '../echo/loopsim';
 import type { LoopParams } from '../echo/pattern';
 import { derive, loopParams, type GameState } from '../economy/state';
 import {
@@ -37,6 +41,31 @@ export interface BotOpts {
   speedFactor?: number;
   /** Distance maximale à laquelle le bot repère une géode (défaut 45 m). */
   viewRange?: number;
+  /** Arme utilisée toute la boucle (0 Éclateur, 1 Fracasseur ; défaut 0). */
+  weapon?: number;
+  /** Élément tiré sur les géodes neutres (défaut : voir `defaultElem`). */
+  elem?: number;
+}
+
+/** Distance de tir visée avec le Fracasseur (m). */
+const W2_RANGE = 12;
+
+/** Élément par défaut : le plus haut niveau débloqué (à égalité feu, puis foudre, puis glace). */
+export function defaultElem(p: LoopParams): number {
+  let best = 0, bestL = 0;
+  for (const [e, l] of [[1, p.fire ?? 0], [3, p.volt ?? 0], [2, p.ice ?? 0]] as const) if (l > bestL) { bestL = l; best = e; }
+  return best;
+}
+
+const elemLevel = (p: LoopParams, e: number) => (e === 1 ? p.fire ?? 0 : e === 2 ? p.ice ?? 0 : e === 3 ? p.volt ?? 0 : 1);
+
+/** Élément à tirer sur une géode d'élément `ge`. */
+export function pickElem(p: LoopParams, ge: number, fallback: number): number {
+  if (ge > 0) {
+    const counter = ELEM_BEATS.indexOf(ge);
+    if (elemLevel(p, counter) > 0) return counter;
+  }
+  return fallback === ge && ge > 0 ? 0 : fallback;
 }
 
 export interface BotLoop {
@@ -47,6 +76,8 @@ export interface BotLoop {
 export interface BestLoop extends BotLoop {
   /** Stratégie retenue (zone maximale visitée). */
   strategy: number;
+  /** Arme retenue. */
+  weapon: number;
   params: LoopParams;
 }
 
@@ -189,7 +220,25 @@ export function playLoop(params: LoopParams, stats: { fireRate: number }, opts: 
   const tickMs = 1000 / CFG.loop.sampleHz;
   const dt = 1 / CFG.loop.sampleHz;
   const n = tickCount(duration);
-  const cooldownMs = 1000 / stats.fireRate;
+  const weapon = opts.weapon === 1 && (params.w2 ?? 0) > 0 ? 1 : 0;
+  const fallbackElem = opts.elem ?? defaultElem(params);
+  const cooldownMs = 1000 / (stats.fireRate * (weapon === 1 ? w2RateMult(params.w2 ?? 1) : 1));
+  const W2 = CFG.w2;
+  const pellets = W2.pellets + W2.pelletsPerLevel * Math.max(0, (params.w2 ?? 1) - 1);
+  /** Dégâts moyens d'un tir qui touche, à la distance `dist`, sur la géode `g`. */
+  const shotDamage = (g: number, dist: number): number => {
+    const s = sim.specs[g];
+    const e = pickElem(params, s.elem ?? 0, fallbackElem);
+    let d = params.damage * elemMult(e, s.elem ?? 0);
+    // Bonus moyens des effets : brûlure qui s'ajoute, gel qui amplifie les tirs suivants.
+    if (e === 1) d *= 1 + 0.5 * (CFG.elements.burnBase + CFG.elements.burnPerLevel * ((params.fire ?? 1) - 1)) / CFG.elements.burnTick * 0.3;
+    if (e === 2) d *= 1 + 0.6 * (CFG.elements.brittleBase + CFG.elements.brittlePerLevel * ((params.ice ?? 1) - 1));
+    if (weapon === 0) return d;
+    const k = Math.min(1, Math.max(0, (dist - W2.falloffStart) / (W2.falloffEnd - W2.falloffStart)));
+    const ang = Math.atan2(s.radius * 1.12, Math.max(0.5, dist));
+    const frac = ang >= W2.spread ? 1 : (ang / W2.spread) ** 2;
+    return d * W2.damage * pellets * Math.max(1 / pellets, frac) * (1 - k * (1 - W2.falloffMin));
+  };
 
   const pos = { x: START.x, y: START.y, z: START.z }; // pieds
   let yaw = START.yaw, pitch = 0;
@@ -225,8 +274,13 @@ export function playLoop(params: LoopParams, stats: { fireRate: number }, opts: 
     sim.pos(g, t, P);
     if (Math.hypot(P.x - pos.x, P.y - pos.y - eye, P.z - pos.z) > viewRange) return -1;
     const a = s.type === 'mobile' ? accMobile : acc;
-    const shots = Math.max(1, Math.ceil(sim.hp[g] / params.damage - 1e-9));
-    const kill = shots / (stats.fireRate * a) + (g === target ? 0 : reaction);
+    const here = Math.hypot(P.x - pos.x, P.y - pos.y - eye, P.z - pos.z);
+    // Fracasseur : le temps d'aller au contact compte dans le coût de la cible.
+    const approach = weapon === 1 && t >= route.total ? Math.max(0, here - W2_RANGE) / speed : 0;
+    const fireDist = weapon === 1 && t >= route.total ? Math.min(here, W2_RANGE) : here;
+    const shots = Math.max(1, Math.ceil(sim.hp[g] / shotDamage(g, fireDist) - 1e-9));
+    const rate = stats.fireRate * (weapon === 1 ? w2RateMult(params.w2 ?? 1) : 1);
+    const kill = approach + shots / (rate * a) + (g === target ? 0 : reaction);
     const ready = t + kill + params.magnetDelay;
     const inTransit = t < route.total;
     let collectAt = -1;
@@ -288,7 +342,8 @@ export function playLoop(params: LoopParams, stats: { fireRate: number }, opts: 
       }
       if (destDist < 0 && target >= 0) {
         sim.pos(target, t, P);
-        destDist = Math.max(0, Math.hypot(P.x - pos.x, P.z - pos.z) - needH(P.y) * APPROACH);
+        const keep = weapon === 1 ? Math.min(needH(P.y) * APPROACH, W2_RANGE * 0.8) : needH(P.y) * APPROACH;
+        destDist = Math.max(0, Math.hypot(P.x - pos.x, P.z - pos.z) - keep);
         destX = P.x; destZ = P.z;
       }
       if (destDist > 1e-6) {
@@ -343,7 +398,7 @@ export function playLoop(params: LoopParams, stats: { fireRate: number }, opts: 
           yaw += (Math.cos(phi) * off) / Math.max(0.2, Math.cos(pitch));
           pitch = Math.max(-1.5, Math.min(1.5, pitch + Math.sin(phi) * off));
         }
-        run.shoot(s, ox, oy, oz, yaw, pitch);
+        run.shoot(s, ox, oy, oz, yaw, pitch, shotKind(weapon, pickElem(params, spec.elem ?? 0, fallbackElem)));
         nextShotMs = sMs + cooldownMs;
       }
     }
@@ -367,9 +422,12 @@ export function bestLoop(state: GameState, seed: number): BestLoop {
   const params = loopParams(state);
   const stats = derive(state);
   let best: BestLoop | null = null;
-  for (let z = 0; z <= Math.min(params.zone, 3); z++) {
-    const r = playLoop(params, stats, { seed: seed * 31 + z, maxZone: z });
-    if (!best || r.result.shards > best.result.shards) best = { ...r, strategy: z, params };
+  const weapons = (params.w2 ?? 0) > 0 ? [0, 1] : [0];
+  for (const w of weapons) {
+    for (let z = 0; z <= Math.min(params.zone, 3); z++) {
+      const r = playLoop(params, stats, { seed: seed * 31 + z, maxZone: z, weapon: w });
+      if (!best || r.result.shards > best.result.shards) best = { ...r, strategy: z, weapon: w, params };
+    }
   }
   return best!;
 }

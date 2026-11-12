@@ -123,7 +123,7 @@ function shop(s: GameState, t: number): Purchase[] {
     const zoneLeft = buyBlock(s, 'zone') !== 'max';
     let best = '', bestK = 0, bestRatio = 0;
     for (const u of UPGRADES) {
-      if (u.id === 'zone' || u.id === 'offline' || u.id === 'w2' || u.family === 'element' || buyBlock(s, u.id) !== null) continue;
+      if (u.id === 'zone' || u.id === 'offline' || buyBlock(s, u.id) !== null) continue;
       let cost = 0;
       for (let k = 1; k <= LOOKAHEAD && lvl(s, u.id) + k <= u.max; k++) {
         cost += costAt(u.id, lvl(s, u.id) + k - 1);
@@ -161,6 +161,8 @@ interface GameReport {
   loops: number;
   visits: number;
   strategies: number[];
+  /** Boucles retenues jouées au Fracasseur. */
+  w2Loops: number;
   replayMismatch: number;
   families: Record<Family, number>;
   fails: string[];
@@ -181,7 +183,7 @@ function runGame(seed: number): GameReport {
   const rep: GameReport = {
     seed, purchases: [], checkpoints: [], firstAffordable: -1, prestigeAt: -1, fragments: 0,
     zoneAtPrestige: 0, echoesAtPrestige: 0, longestGap: 0, gapFrom: 0, loops: 0, visits: 0,
-    strategies: [0, 0, 0, 0], replayMismatch: 0,
+    strategies: [0, 0, 0, 0], w2Loops: 0, replayMismatch: 0,
     families: { weapon: 0, loop: 0, arena: 0, magnet: 0, element: 0 }, fails: [],
   };
   let T = 0;
@@ -229,6 +231,7 @@ function runGame(seed: number): GameReport {
       T += CFG.loop.rewindTime;
       rep.loops++;
       rep.strategies[loop.strategy]++;
+      if (loop.weapon === 1) rep.w2Loops++;
       winActive += raw * st.globalMult;
       winTime += real;
     }
@@ -307,7 +310,10 @@ function printReport(r: GameReport): void {
     console.log(`  ${pad(c.t / 60, 5)}${padL(c.active.toFixed(1), 10)}${padL(c.echo.toFixed(1), 10)}${padL(`${c.echoes}/${c.slots}`, 8)}${padL(c.zone, 6)}${padL(num(c.earned), 10)}`);
   }
   console.log(`\nBoucles jouées : ${r.loops} (par stratégie de zone : ${r.strategies.join(' / ')}), visites au terminal : ${r.visits}`);
-  console.log(`Achats par famille : arme ${r.families.weapon}, boucle ${r.families.loop}, arène ${r.families.arena}, aimant ${r.families.magnet}`);
+  console.log(`Achats par famille : arme ${r.families.weapon}, boucle ${r.families.loop}, arène ${r.families.arena}, aimant ${r.families.magnet}, éléments ${r.families.element}`);
+  const first = (id: string) => { const p = r.purchases.find((x) => x.id === id); return p ? mmss(p.t) : 'jamais'; };
+  const lv = (id: string) => r.purchases.filter((x) => x.id === id).length;
+  console.log(`Nouveautés : Fracasseur ${first('w2')} (niv. ${lv('w2')}), feu ${first('fire')} (${lv('fire')}), glace ${first('ice')} (${lv('ice')}), foudre ${first('volt')} (${lv('volt')}) ; boucles au Fracasseur : ${r.w2Loops} / ${r.loops}`);
   console.log(`Première amélioration achetable : ${r.firstAffordable < 0 ? 'jamais' : r.firstAffordable.toFixed(1) + ' s'}`);
   console.log(`Plus long intervalle sans achat (15 premières min) : ${mmss(r.longestGap)} (à partir de ${mmss(r.gapFrom)})`);
   console.log(r.prestigeAt < 0

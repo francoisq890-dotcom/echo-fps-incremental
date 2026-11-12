@@ -37,7 +37,7 @@ Le site est redéployé par GitHub Actions à chaque push sur `main` (`.github/w
 - **Boucle et échos** : boucle de 12 s (améliorable jusqu'à 20 s), minuteur diégétique (anneau de dalles autour de l'arène + anneau autour du viseur), enregistrement compressé (20 Hz + tirs horodatés), rejeu déterministe, emplacements limités avec remplacement de l'écho le plus faible et messages explicites.
 - **Feedback** : hit-stop, recul, flash de bouche, secousse proportionnelle, géodes en 3 états de fissure, éclats qui rebondissent puis sont aspirés en spirale avec un tick de plus en plus aigu, combo visible, chiffres volants colorés selon la valeur, fin de boucle avec flash, rembobinage et matérialisation de l'écho.
 - **21 améliorations en 5 familles** (arme, boucle, arène, aimant, éléments), achetées à un terminal qui est un écran dans le monde. L'arme change d'aspect sur 4 paliers.
-- **Deux armes.** L'**Éclateur** tire un rayon précis (perforation, ricochets). Le **Fracasseur** tire une gerbe de plombs en cône : dévastateur au contact, faible au-delà de 9 m, lent, avec un gros recul. Il a son propre modèle (deux canons, barillet de cristaux qui tourne à chaque tir) et l'échange d'arme est animé.
+- **Deux armes.** L'**Éclateur** tire un rayon précis (perforation, ricochets). Le **Fracasseur** tire une gerbe de plombs en cône qui ricochent : excellent sur les grappes de géodes proches, il perd sa force au-delà de 16 m, tire moins vite et recule fort. Il a son propre modèle (deux canons, barillet de cristaux qui tourne à chaque tir) et l'échange d'arme est animé.
 - **Trois éléments**, applicables aux deux armes : le **feu** fait brûler la géode quelques secondes, la **glace** la gèle (elle subit plus de dégâts de toutes les sources), la **foudre** lance un arc vers une géode voisine. Cycle feu > glace > foudre > feu : ×2 contre l'élément battu, ×0,5 contre le même élément. L'élément en main colore les tirs, le cœur de l'arme et le flash.
 - **Géodes élémentaires** : dès qu'un élément est débloqué, des géodes de cet élément apparaissent (coque teintée, plus résistantes, +80 % de valeur). L'info-bulle indique leur faiblesse ; « FAIBLE ×2 » ou « résiste » s'affiche à l'impact.
 - **5 types de géodes** : simple, mobile, blindée, dorée (rare, éphémère), explosive (chaînes), chacune pouvant être élémentaire.
@@ -55,7 +55,8 @@ Le site est redéployé par GitHub Actions à chaque push sur `main` (`.github/w
 |---|---|
 | `npm test` (Vitest) | 175 tests verts : économie, sauvegarde, hors-ligne, rejeu déterministe, armes et éléments (dont la relecture des anciens enregistrements) |
 | `npm run test:move` (navigateur, serveur lancé) | 26 vérifications de déplacement |
-| `npm run sim` | Premier Effondrement entre 35 et 39 min sur 3 graines ; plus long trou sans achat en début de partie : 1 min 38 ; les échos restent sous le revenu actif pendant les 10 premières minutes |
+| `npm run sim` | Avec l'arme et les éléments : premier Effondrement entre 31 et 38 min sur 8 graines ; plus long trou sans achat en début de partie : 1 min 31 ; les échos restent sous le revenu actif pendant les 10 premières minutes. Le Fracasseur est acheté vers 5 min et joué dans 1 boucle sur 5, les éléments entre 7 et 14 min |
+| `npx tsx scripts/weapon-compare.ts` | Butin d'une boucle à chaque arme, à 4 étapes de partie |
 | `npm run build` | OK (bundle de 180 Ko gzip, 370 Ko d'images) |
 | Captures headless (`npm run shots`, Chromium avec GPU) | 60 fps avec 40 échos actifs, environ 145 draw calls, console sans erreur |
 
@@ -72,12 +73,11 @@ Captures regardées, dans `shots/` : [accueil](shots/01-accueil.png), [combat à
 - **Les tirs traversent le décor** (choix assumé, voir `DECISIONS.md`).
 - **40 emplacements d'échos** : le plafond existe, mais le coût le rend hors d'atteinte avant plusieurs Effondrements. La simulation en atteint 21 au premier.
 - **Équilibrage après le premier Effondrement** : non simulé.
-- **Fracasseur et éléments non équilibrés par la simulation** : le bot ne sait pas les jouer, il ne les achète donc pas. Les chiffres du premier Effondrement (35–39 min) sont mesurés sans eux ; les coûts (400 à 500 éclats au premier niveau) et les effets sont des valeurs de départ réglées à l'œil, à valider en jouant.
+- **Équilibrage par un bot** : le Fracasseur et les éléments sont équilibrés avec un bot (75 % de précision, choisit toujours le bon élément). Un humain qui oublie de changer d'élément gagnera moins avec eux ; la sensation en main reste à valider.
 - **Arme et échos procéduraux** : la génération 3D Higgsfield a échoué ou dépassait le budget (`ASSETS.md`).
 
 ## Reste à faire
 
-- Apprendre au bot de simulation à utiliser le Fracasseur (se rapprocher) et les éléments (choisir celui qui bat la géode visée), puis rééquilibrer leurs coûts.
 - Faire porter l'élément aux échos à l'écran (leurs tirs sont rejoués avec le bon élément mais dessinés en sarcelle).
 - Ajouter une étape de tutoriel pour l'arme et les éléments.
 

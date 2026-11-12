@@ -77,14 +77,16 @@ export const CFG = {
     pellets: 6,
     pelletsPerLevel: 1,
     /** Dégâts d'un plomb, en part des dégâts de l'arme. */
-    damage: 0.4,
+    damage: 0.5,
     /** Demi-angle du cône, en radians. */
-    spread: 0.085,
+    spread: 0.11,
     /** Cadence relative à celle de l'Éclateur. */
-    fireRate: 0.4,
+    fireRate: 0.6,
+    /** Cadence gagnée par niveau du Fracasseur (au-delà du premier). */
+    fireRatePerLevel: 0.08,
     /** Les plombs perdent leur force entre ces deux distances (m). */
-    falloffStart: 9,
-    falloffEnd: 26,
+    falloffStart: 16,
+    falloffEnd: 40,
     falloffMin: 0.25,
   },
 
@@ -110,7 +112,7 @@ export const CFG = {
     geodeChance: 0.14,
     geodeChanceMax: 0.45,
     geodeHp: 1.5,
-    geodeValue: 1.8,
+    geodeValue: 1.5,
   },
 
   magnet: {
@@ -182,6 +184,11 @@ const pct = (x: number) => `${Math.round(x * 100)} %`;
 const rel = (t: GeodeType) => Math.round(CFG.geodes.types[t].value / CFG.geodes.types.basic.value);
 const fix1 = (x: number) => (Math.round(x * 10) / 10).toString().replace('.', ',');
 
+/** Cadence du Fracasseur, relative à celle de l'Éclateur, à son niveau `l`. */
+export function w2RateMult(l: number): number {
+  return CFG.w2.fireRate * (1 + CFG.w2.fireRatePerLevel * Math.max(0, l - 1));
+}
+
 export function damageAt(lvl: number): number {
   return Math.round((CFG.weapon.baseDamage + lvl) * Math.pow(1.09, lvl) * 10) / 10;
 }
@@ -221,8 +228,8 @@ export const UPGRADES: UpgradeDef[] = [
   {
     id: 'w2', family: 'weapon', name: 'Fracasseur', icon: 20,
     desc: `Une seconde arme : une gerbe de plombs en cône, dévastatrice de près, faible au-delà de ${CFG.w2.falloffStart} m, et lente. Touche 2 ou molette pour la prendre.`,
-    baseCost: 500, growth: 4.5, max: 6,
-    fx: (l) => (l === 0 ? 'verrouillé' : `${CFG.w2.pellets + CFG.w2.pelletsPerLevel * (l - 1)} plombs × ${pct(CFG.w2.damage)} des dégâts`),
+    baseCost: 150, growth: 3.2, max: 6,
+    fx: (l) => (l === 0 ? 'verrouillé' : `${CFG.w2.pellets + CFG.w2.pelletsPerLevel * (l - 1)} plombs × ${pct(CFG.w2.damage)}, cadence ${pct(w2RateMult(l))}`),
   },
   // ——— Boucle ———
   {
@@ -303,19 +310,19 @@ export const UPGRADES: UpgradeDef[] = [
   {
     id: 'fire', family: 'element', name: 'Feu', icon: 21,
     desc: `Tes tirs enflamment la géode : elle brûle pendant ${CFG.elements.burnDuration} s. ×${CFG.elements.weak} contre les géodes de glace. Touche R pour changer d'élément.`,
-    baseCost: 400, growth: 4.5, max: 5,
+    baseCost: 2000, growth: 5, max: 5,
     fx: (l) => (l === 0 ? 'verrouillé' : `brûlure : ${pct((CFG.elements.burnBase + CFG.elements.burnPerLevel * (l - 1)) / CFG.elements.burnTick)} des dégâts / s`),
   },
   {
     id: 'ice', family: 'element', name: 'Glace', icon: 22,
     desc: `Tes tirs gèlent la géode : fragile pendant ${CFG.elements.brittleDuration} s, elle subit plus de dégâts de toutes les sources. ×${CFG.elements.weak} contre les géodes de foudre.`,
-    baseCost: 400, growth: 4.5, max: 5,
+    baseCost: 2000, growth: 5, max: 5,
     fx: (l) => (l === 0 ? 'verrouillé' : `gel : +${pct(CFG.elements.brittleBase + CFG.elements.brittlePerLevel * (l - 1))} de dégâts`),
   },
   {
     id: 'volt', family: 'element', name: 'Foudre', icon: 23,
     desc: `Chaque tir qui touche lance un arc vers une géode voisine (${CFG.elements.arcRange} m). ×${CFG.elements.weak} contre les géodes de feu.`,
-    baseCost: 400, growth: 4.5, max: 5,
+    baseCost: 2000, growth: 5, max: 5,
     fx: (l) => (l === 0 ? 'verrouillé' : `${CFG.elements.arcCount + Math.floor((l - 1) / 2)} arc${l >= 3 ? 's' : ''} à ${pct(CFG.elements.arcBase + CFG.elements.arcPerLevel * (l - 1))} des dégâts`),
   },
 ];

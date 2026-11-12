@@ -3,7 +3,7 @@
  */
 import * as THREE from 'three';
 import { audio } from './audio/audio';
-import { CFG, ELEM_BEATS, ELEM_CSS, ELEM_NAMES, ELEM_RGB, UPGRADES, UPGRADE_BY_ID, WEAPON_NAMES } from './config';
+import { CFG, w2RateMult, ELEM_BEATS, ELEM_CSS, ELEM_NAMES, ELEM_RGB, UPGRADES, UPGRADE_BY_ID, WEAPON_NAMES } from './config';
 import { clamp, fmt, fmtRate, wrapAngle } from './core/util';
 import { EchoRenderer } from './echo/echoRenderer';
 import { shotKind, type SimEvent } from './echo/loopsim';
@@ -374,7 +374,7 @@ export class Game {
     if (wantFire && this.fireCooldown <= 0 && t < duration && !this.weapon.swapping) {
       const lo = this.state.loadout;
       const heavy = lo.weapon === 1;
-      this.fireCooldown = 1 / (this.stats.fireRate * (heavy ? CFG.w2.fireRate : 1));
+      this.fireCooldown = 1 / (this.stats.fireRate * (heavy ? w2RateMult(lvl(this.state, 'w2')) : 1));
       run.shoot(t, p.x, p.eyeY, p.z, p.yaw, p.pitch, shotKind(lo.weapon, lo.elem));
       this.weapon.fire();
       audio.shot(heavy ? 4 : this.weapon.tier);

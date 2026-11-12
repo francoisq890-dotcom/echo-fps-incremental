@@ -227,7 +227,7 @@ export class LoopSim {
         let px = dx + rx * cx + ux * cy, py = dy + ry * cx + uy * cy, pz = dz + rz * cx + uz * cy;
         const pl = Math.hypot(px, py, pz);
         px /= pl; py /= pl; pz /= pl;
-        if (this.castRay(t, ox, oy, oz, px, py, pz, p.damage * W.damage, elem, 1, false)) any = true;
+        if (this.castRay(t, ox, oy, oz, px, py, pz, p.damage * W.damage, elem, 1, true)) any = true;
       }
       if (any) this.result.hits++;
       return;
