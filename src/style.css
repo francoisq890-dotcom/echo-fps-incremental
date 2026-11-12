@@ -92,6 +92,17 @@ canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 .toast { padding: 9px 16px; background: rgba(29, 15, 34, .8); border-left: 4px solid var(--amber); border-radius: 8px; font-size: 16px; animation: toast 4s ease-out forwards; max-width: 420px; }
 @keyframes toast { 0% { opacity: 0; transform: translateX(30px); } 6% { opacity: 1; transform: none; } 88% { opacity: 1; } 100% { opacity: 0; } }
 
+#loadout { position: absolute; left: 26px; bottom: 22px; display: flex; gap: 8px; align-items: center; font-size: 15px; text-shadow: 0 1px 0 rgba(43, 24, 48, .8); }
+#loadout .chip { display: flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 10px; background: rgba(29, 15, 34, .55); border: 2px solid rgba(247, 227, 184, .18); opacity: .6; }
+#loadout .chip.on { opacity: 1; border-color: var(--cream); background: rgba(29, 15, 34, .8); font-weight: 700; }
+#loadout .chip kbd { font-family: inherit; font-size: 12px; font-weight: 700; padding: 0 6px; border-radius: 5px; background: rgba(247, 227, 184, .85); color: var(--plum); }
+#loadout .chip i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+#loadout .sep { width: 1px; height: 22px; background: rgba(247, 227, 184, .3); margin: 0 4px; }
+.floater.e1 { font-size: 21px; color: #ff7a3c; }
+.floater.e2 { font-size: 21px; color: #9fdcff; }
+.floater.e3 { font-size: 21px; color: #c79bff; }
+.floater.resist { font-size: 16px; color: rgba(247, 227, 184, .6); font-weight: 600; }
+
 /* ——— Écrans plein cadre : titre, pause, retour hors ligne, Effondrement ——— */
 #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(43, 24, 48, .5), rgba(29, 15, 34, .88)); -webkit-user-select: text; user-select: text; overflow: auto; padding: 20px; }
 #overlay.title { background: linear-gradient(180deg, rgba(43, 24, 48, .05) 0%, rgba(43, 24, 48, .25) 55%, rgba(29, 15, 34, .9) 100%); align-items: flex-end; padding-bottom: 7vh; }
@@ -155,6 +166,8 @@ textarea.save { width: 100%; height: 74px; margin-top: 8px; background: rgba(0, 
 .btn-jump { right: 138px; bottom: 34px; }
 .btn-use { right: 34px; bottom: 208px; width: 62px; height: 62px; }
 .btn-pause { right: 20px; top: 16px; width: 48px; height: 48px; font-size: 13px; }
+.btn-wpn { right: 138px; bottom: 126px; width: 62px; height: 62px; font-size: 12px; }
+.btn-elem { right: 212px; bottom: 126px; width: 62px; height: 62px; font-size: 12px; }
 
 @media (max-width: 760px) {
   #wallet .shards { font-size: 30px; }

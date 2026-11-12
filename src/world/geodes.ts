@@ -4,7 +4,7 @@
  * Deux draw calls pour toutes les géodes.
  */
 import * as THREE from 'three';
-import type { GeodeType } from '../config';
+import { ELEM_RGB, type GeodeType } from '../config';
 import { mulberry32 } from '../core/util';
 import type { LoopSim } from '../echo/loopsim';
 
@@ -19,6 +19,9 @@ export const GEODE_LOOK: Record<GeodeType, Look> = {
   golden: { shell: 0xf0b63c, core: [2.8, 1.8, 0.35], scale: 0.85, baseCrack: 0.22 },
   explosive: { shell: 0x7b2c26, core: [2.4, 0.5, 0.09], scale: 0.95, baseCrack: 0.14 },
 };
+
+const ELEM_SHELL = [new THREE.Color(0xffffff), new THREE.Color(0xa8341f), new THREE.Color(0x5fb4e8), new THREE.Color(0x6f4aa6)];
+const FROST = new THREE.Color(0xd8f1ff);
 
 export const GEODE_NAME: Record<GeodeType, string> = {
   basic: 'Géode', mobile: 'Géode mobile', armored: 'Géode blindée', golden: 'Géode dorée', explosive: 'Géode explosive',
@@ -96,6 +99,9 @@ interface Slot {
   spinSpeed: number;
   x: number; y: number; z: number;
   radius: number;
+  elem: number;
+  burn: number;
+  brittle: number;
 }
 
 export class GeodeRenderer {
@@ -169,7 +175,7 @@ export class GeodeRenderer {
     this.byGeode.set(g, this.slots.length);
     this.slots.push({
       g, type: spec.type, crack: look.baseCrack, crackTarget: look.baseCrack, flash: 0, punch: 0,
-      appear: instant ? 1 : 0, leaving: -1, spin: g * 1.7, spinSpeed: 0.25 + (g % 5) * 0.07, x: spec.x, y: spec.y, z: spec.z, radius: spec.radius,
+      appear: instant ? 1 : 0, leaving: -1, spin: g * 1.7, spinSpeed: 0.25 + (g % 5) * 0.07, x: spec.x, y: spec.y, z: spec.z, radius: spec.radius, elem: spec.elem ?? 0, burn: 0, brittle: 0,
     });
   }
 
@@ -181,6 +187,13 @@ export class GeodeRenderer {
     s.crackTarget = Math.max(s.crackTarget, look.baseCrack + [0.08, 0.36, 0.62][stage]);
     s.flash = 1;
     s.punch = 1;
+  }
+
+  /** Statut posé par un tir élémentaire : la géode brûle ou devient fragile pendant `seconds`. */
+  setStatus(g: number, status: 'burn' | 'brittle', seconds: number): void {
+    const i = this.byGeode.get(g);
+    if (i === undefined) return;
+    if (status === 'burn') this.slots[i].burn = seconds; else this.slots[i].brittle = seconds;
   }
 
   /** Retire immédiatement (cassure : les débris prennent le relais). */
@@ -244,6 +257,8 @@ export class GeodeRenderer {
       sl.flash = Math.max(0, sl.flash - dt * 7);
       sl.punch = Math.max(0, sl.punch - dt * 6.5);
       sl.spin += dt * sl.spinSpeed;
+      sl.burn = Math.max(0, sl.burn - dt);
+      sl.brittle = Math.max(0, sl.brittle - dt);
       // Apparition avec dépassement (« pop »), coup de poing d'échelle à l'impact.
       const a = sl.appear;
       const pop = a < 1 ? 1 + 2.7 * Math.pow(a - 1, 3) + 1.7 * Math.pow(a - 1, 2) : 1;
@@ -255,14 +270,21 @@ export class GeodeRenderer {
       q.setFromEuler(e.set(sl.spin * 0.6, sl.spin, 0.3));
       s.set(k, k, k);
       this.shell.setMatrixAt(i, m.compose(p, q, s));
-      this.shell.setColorAt(i, c.set(look.shell));
+      c.set(look.shell);
+      // Géode élémentaire : la coque prend la teinte de son élément. Gelée : elle blanchit.
+      if (sl.elem > 0) c.lerp(ELEM_SHELL[sl.elem], 0.72);
+      if (sl.brittle > 0) c.lerp(FROST, 0.55 + 0.15 * Math.sin(time * 9));
+      this.shell.setColorAt(i, c);
       const pulse = sl.type === 'explosive' ? 0.7 + 0.5 * Math.sin(time * 9 + sl.g) : sl.type === 'golden' ? 0.9 + 0.25 * Math.sin(time * 12) : 0.92 + 0.08 * Math.sin(time * 3 + sl.g);
       const glow = pulse * (0.75 + sl.crack * 0.9) + sl.flash * 0.7;
       s.setScalar(k * (0.74 + sl.crack * 0.12));
       this.core.setMatrixAt(i, m.compose(p, q, s));
-      this.core.setColorAt(i, c.setRGB(look.core[0] * glow, look.core[1] * glow, look.core[2] * glow));
+      const core = sl.elem > 0 ? ELEM_RGB[sl.elem] : look.core;
+      const k2 = sl.elem > 0 ? 0.62 : 1;
+      const fire = sl.burn > 0 ? 0.6 + 0.5 * Math.sin(time * 31 + sl.g) : 0;
+      this.core.setColorAt(i, c.setRGB(core[0] * k2 * glow + fire * 1.6, core[1] * k2 * glow + fire * 0.45, core[2] * k2 * glow));
       this.aCrack.setX(i, sl.crack);
-      this.aFlash.setX(i, sl.flash);
+      this.aFlash.setX(i, Math.max(sl.flash, sl.burn > 0 ? 0.12 + 0.1 * Math.sin(time * 27 + sl.g) : 0));
     }
     this.shell.count = this.core.count = n;
     this.shell.instanceMatrix.needsUpdate = true;

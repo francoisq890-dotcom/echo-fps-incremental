@@ -67,6 +67,17 @@ Trois relecteurs séparés (logique, performance, conformité au cahier des char
 
 Non traité, par choix : fusion des petits meshes de décor (piédestaux, pads), regroupement des relances d'animation CSS du HUD. Impact mesuré négligeable à 60 fps.
 
+## Seconde arme et éléments (ajout du 12/11)
+
+- **Le Fracasseur complète l'Éclateur au lieu de le remplacer.** Gerbe de plombs (6 au niveau 1, +1 par niveau) à 40 % des dégâts chacun, cadence à 40 % de celle de l'Éclateur, dégâts réduits jusqu'à 25 % entre 9 et 26 m. Il récompense le trajet au contact des géodes ; l'Éclateur garde la précision à distance. Le Fracasseur ne profite ni des ricochets ni des arcs multiples par plomb (chaque plomb peut lancer un arc de foudre, mais un arc ne relance pas d'arc).
+- **La gerbe est fixe** (spirale à l'angle d'or), pas aléatoire : un écho rejoue exactement la même gerbe.
+- **Les éléments s'appliquent aux deux armes et forment un cycle** (feu > glace > foudre > feu). Faiblesse ×2, résistance ×0,5. Les explosions restent neutres, pour que les chaînes ne deviennent pas illisibles.
+- **Effets choisis pour être différents, pas plus forts** : le feu agit dans la durée (utile sur les blindées), la glace rend fragile (combo avec le Fracasseur ou les explosions), la foudre touche une autre géode (utile en zone dense).
+- **Géodes élémentaires tirées sur un générateur séparé** : débloquer un élément ne change ni les positions, ni les types, ni les horaires des géodes ; un trajet appris reste valable.
+- **Format d'enregistrement 2** : chaque tir porte un septième champ (arme + élément). Les enregistrements de l'ancien format (6 champs) restent lisibles et redonnent le même butin ; c'est testé. Les sauvegardes existantes restent donc valides.
+- **Icônes dessinées en code.** Une nouvelle planche d'icônes Higgsfield était prévue, mais l'illimité n'est pas disponible depuis Claude Code (refus du service) et le solde est de 10 crédits.
+- **Équilibrage à l'œil.** Le bot de simulation n'achète pas ces améliorations ; les critères de la simulation sont donc mesurés sans elles.
+
 ## Ce qui a été coupé ou n'a pas marché
 
 - **Modèles 3D générés** : hors budget ou en échec (détail dans `ASSETS.md`). Arme et échos sont procéduraux.

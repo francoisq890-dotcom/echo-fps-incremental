@@ -123,7 +123,7 @@ function shop(s: GameState, t: number): Purchase[] {
     const zoneLeft = buyBlock(s, 'zone') !== 'max';
     let best = '', bestK = 0, bestRatio = 0;
     for (const u of UPGRADES) {
-      if (u.id === 'zone' || u.id === 'offline' || buyBlock(s, u.id) !== null) continue;
+      if (u.id === 'zone' || u.id === 'offline' || u.id === 'w2' || u.family === 'element' || buyBlock(s, u.id) !== null) continue;
       let cost = 0;
       for (let k = 1; k <= LOOKAHEAD && lvl(s, u.id) + k <= u.max; k++) {
         cost += costAt(u.id, lvl(s, u.id) + k - 1);
@@ -182,7 +182,7 @@ function runGame(seed: number): GameReport {
     seed, purchases: [], checkpoints: [], firstAffordable: -1, prestigeAt: -1, fragments: 0,
     zoneAtPrestige: 0, echoesAtPrestige: 0, longestGap: 0, gapFrom: 0, loops: 0, visits: 0,
     strategies: [0, 0, 0, 0], replayMismatch: 0,
-    families: { weapon: 0, loop: 0, arena: 0, magnet: 0 }, fails: [],
+    families: { weapon: 0, loop: 0, arena: 0, magnet: 0, element: 0 }, fails: [],
   };
   let T = 0;
   let nextCheck = CHECK_EVERY;

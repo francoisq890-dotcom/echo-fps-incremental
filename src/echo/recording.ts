@@ -15,7 +15,8 @@ import type { LoopParams } from './pattern';
 const POS_Q = 50; // 2 cm
 const ANG_Q = 10000; // 0,1 mrad
 const SAMPLE_STRIDE = 5; // x y z yaw pitch
-const SHOT_STRIDE = 6; // t(ms) x y z yaw pitch
+/** Ancien format : t(ms) x y z yaw pitch. Format 2 : + nature du tir (arme et élément). */
+const shotStride = (p: LoopParams) => (p.fmt === 2 ? 7 : 6);
 
 export interface Recording {
   params: LoopParams;
@@ -47,8 +48,11 @@ export class LoopRun {
   private dir = { x: 0, y: 0, z: 0 };
   ticks = 0;
 
-  constructor(readonly params: LoopParams) {
-    this.sim = new LoopSim(params);
+  readonly params: LoopParams;
+
+  constructor(params: LoopParams) {
+    this.params = { ...params, fmt: 2 };
+    this.sim = new LoopSim(this.params);
   }
 
   /** Nombre d'échantillons qui auraient dû être pris à l'instant t. */
@@ -64,12 +68,12 @@ export class LoopRun {
     this.ticks++;
   }
 
-  shoot(t: number, x: number, y: number, z: number, yaw: number, pitch: number): void {
+  shoot(t: number, x: number, y: number, z: number, yaw: number, pitch: number, kind = 0): void {
     const tms = Math.max(0, Math.min(32767, Math.round(t * 1000)));
     const qx = qPos(x), qy = qPos(y), qz = qPos(z), qyaw = qAng(yaw), qp = qAng(pitch);
-    this.shots.push(tms, qx, qy, qz, qyaw, qp);
+    this.shots.push(tms, qx, qy, qz, qyaw, qp, kind);
     dirFrom(qyaw, qp, this.dir);
-    this.sim.shoot(tms / 1000, qx / POS_Q, qy / POS_Q, qz / POS_Q, this.dir.x, this.dir.y, this.dir.z);
+    this.sim.shoot(tms / 1000, qx / POS_Q, qy / POS_Q, qz / POS_Q, this.dir.x, this.dir.y, this.dir.z, kind);
   }
 
   finish(): { recording: Recording; result: LoopResult } {
@@ -86,24 +90,25 @@ export function replay(rec: Recording): { result: LoopResult; events: SimEvent[]
   const sim = new LoopSim(rec.params);
   const dir = { x: 0, y: 0, z: 0 };
   const nS = rec.samples.length / SAMPLE_STRIDE;
-  const nShots = rec.shots.length / SHOT_STRIDE;
+  const stride = shotStride(rec.params);
+  const nShots = Math.floor(rec.shots.length / stride);
   let si = 0;
   for (let k = 0; k < nS; k++) {
     const tk = k / CFG.loop.sampleHz;
     // Les tirs antérieurs à l'échantillon passent d'abord, comme en direct.
-    while (si < nShots && rec.shots[si * SHOT_STRIDE] / 1000 < tk) si = feedShot(sim, rec, si, dir);
+    while (si < nShots && rec.shots[si * stride] / 1000 < tk) si = feedShot(sim, rec, si, dir, stride);
     const o = k * SAMPLE_STRIDE;
     sim.sample(tk, rec.samples[o] / POS_Q, rec.samples[o + 1] / POS_Q, rec.samples[o + 2] / POS_Q);
   }
-  while (si < nShots) si = feedShot(sim, rec, si, dir);
+  while (si < nShots) si = feedShot(sim, rec, si, dir, stride);
   const result = sim.finish();
   return { result, events: sim.events };
 }
 
-function feedShot(sim: LoopSim, rec: Recording, si: number, dir: { x: number; y: number; z: number }): number {
-  const o = si * SHOT_STRIDE;
+function feedShot(sim: LoopSim, rec: Recording, si: number, dir: { x: number; y: number; z: number }, stride: number): number {
+  const o = si * stride;
   dirFrom(rec.shots[o + 4], rec.shots[o + 5], dir);
-  sim.shoot(rec.shots[o] / 1000, rec.shots[o + 1] / POS_Q, rec.shots[o + 2] / POS_Q, rec.shots[o + 3] / POS_Q, dir.x, dir.y, dir.z);
+  sim.shoot(rec.shots[o] / 1000, rec.shots[o + 1] / POS_Q, rec.shots[o + 2] / POS_Q, rec.shots[o + 3] / POS_Q, dir.x, dir.y, dir.z, stride === 7 ? rec.shots[o + 6] : 0);
   return si + 1;
 }
 
@@ -124,7 +129,7 @@ export function poseAt(rec: Recording, t: number, out: Pose): void {
   out.pitch = (s[o0 + 4] + (s[o1 + 4] - s[o0 + 4]) * a) / ANG_Q;
 }
 
-export function shotCount(rec: Recording): number { return rec.shots.length / SHOT_STRIDE; }
+export function shotCount(rec: Recording): number { return Math.floor(rec.shots.length / shotStride(rec.params)); }
 
 // ——— Sérialisation texte (sauvegarde) ———
 

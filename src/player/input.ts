@@ -27,6 +27,10 @@ export class Input {
   jumpPressed = false;
   interactPressed = false;
   pausePressed = false;
+  /** Arme demandée cette image : -1 rien, 0 ou 1 = cette arme, 2 = l'autre (molette, bouton tactile). */
+  weaponPressed = -1;
+  /** Passer à l'élément suivant. */
+  elemPressed = false;
   /** Clic « pointé » (hors pointer lock ou tactile) : coordonnées écran, consommé par le terminal. */
   tap: { x: number; y: number } | null = null;
   locked = false;
@@ -60,6 +64,10 @@ export class Input {
       if (e.code === 'Space' || key === ' ') { this.jumpPressed = true; e.preventDefault(); }
       if (e.code === 'KeyE' || e.code === 'KeyF' || key === 'e' || key === 'f') this.interactPressed = true;
       if (e.code === 'Escape' || key === 'Escape' || e.code === 'KeyP' || key === 'p') this.pausePressed = true;
+      // Rangée des chiffres : `code` d'abord (AZERTY y produit & et é), le caractère en secours.
+      if (e.code === 'Digit1' || key === '1' || key === '&') this.weaponPressed = 0;
+      if (e.code === 'Digit2' || key === '2' || key === 'é') this.weaponPressed = 1;
+      if (e.code === 'KeyR' || key === 'r') this.elemPressed = true;
       if (e.code === 'Tab') e.preventDefault();
     });
     window.addEventListener('keyup', (e) => {
@@ -84,6 +92,8 @@ export class Input {
       this.lookY += e.movementY;
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener('wheel', (e) => { e.preventDefault(); if (Math.abs(e.deltaY) > 0) this.weaponPressed = 2; }, { passive: false });
+    canvas.addEventListener('mousedown', (e) => { if (e.button === 2) this.elemPressed = true; });
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === canvas;
       if (!this.locked) this.releaseAll();
@@ -135,6 +145,8 @@ export class Input {
     bind('.btn-jump', () => (this.jumpPressed = true));
     bind('.btn-use', () => (this.interactPressed = true));
     bind('.btn-pause', () => (this.pausePressed = true));
+    bind('.btn-wpn', () => (this.weaponPressed = 2));
+    bind('.btn-elem', () => (this.elemPressed = true));
 
     this.canvas.addEventListener('touchstart', (e) => {
       e.preventDefault();
@@ -212,6 +224,8 @@ export class Input {
     this.jumpPressed = false;
     this.interactPressed = false;
     this.pausePressed = false;
+    this.weaponPressed = -1;
+    this.elemPressed = false;
     this.tap = null;
     this.lookX = 0;
     this.lookY = 0;

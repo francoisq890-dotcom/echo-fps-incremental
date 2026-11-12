@@ -3,7 +3,7 @@
  */
 import { CFG, UPGRADE_BY_ID, PERKS } from '../config';
 import { base64ToBytes, bytesToBase64 } from '../core/util';
-import { newState, type GameState } from './state';
+import { fixLoadout, newState, type GameState } from './state';
 
 const EXPORT_PREFIX = 'ECHO1:';
 
@@ -70,6 +70,11 @@ export function migrate(raw: unknown, now = Date.now()): GameState {
     s.settings.shake = num(r.settings.shake, s.settings.shake, 0, 1);
     s.settings.invertY = !!r.settings.invertY;
   }
+  if (r.loadout && typeof r.loadout === 'object') {
+    s.loadout.weapon = Math.floor(num(r.loadout.weapon, 0, 0, 1));
+    s.loadout.elem = Math.floor(num(r.loadout.elem, 0, 0, 3));
+  }
+  fixLoadout(s);
   return s;
 }
 

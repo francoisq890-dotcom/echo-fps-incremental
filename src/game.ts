@@ -3,14 +3,14 @@
  */
 import * as THREE from 'three';
 import { audio } from './audio/audio';
-import { CFG, UPGRADES, UPGRADE_BY_ID } from './config';
+import { CFG, ELEM_BEATS, ELEM_CSS, ELEM_NAMES, ELEM_RGB, UPGRADES, UPGRADE_BY_ID, WEAPON_NAMES } from './config';
 import { clamp, fmt, fmtRate, wrapAngle } from './core/util';
 import { EchoRenderer } from './echo/echoRenderer';
-import type { SimEvent } from './echo/loopsim';
+import { shotKind, type SimEvent } from './echo/loopsim';
 import { LoopRun, encodeRecording } from './echo/recording';
 import { loadLocal, saveLocal, wipeLocal } from './economy/save';
 import {
-  applyOffline, buy, costOf, derive, doPrestige, earn, echoRate, loopParams, lvl, newState, prestigePreview,
+  applyOffline, buy, costOf, derive, doPrestige, earn, echoRate, elemUnlocked, fixLoadout, loopParams, lvl, newState, prestigePreview, weaponUnlocked,
   submitLoop, tickEchoes, totalRate, weakestIndex, type GameState, type LoopOutcome, type OfflineReport, type Stats,
 } from './economy/state';
 import { Player } from './player/controller';
@@ -43,6 +43,9 @@ export class Game {
   readonly shards = new Shards();
   readonly debris = new Debris();
   readonly tracers: Tracers;
+  /** Un pool de traits de tir par élément (index = élément ; 0 = le pool neutre ci-dessus). */
+  private elemTracers: Tracers[] = [];
+  private weakHintT = 0;
   readonly rings = new Rings();
   readonly floaters: Floaters;
   readonly echoes: EchoRenderer;
@@ -98,11 +101,14 @@ export class Game {
     const worldUi = document.querySelector<HTMLElement>('#world-ui')!;
     this.arena = new Arena(this.engine);
     this.tracers = new Tracers(96, new THREE.Color(3.2, 2.1, 0.7), 0.11);
+    this.elemTracers = [this.tracers];
+    for (let e = 1; e <= 3; e++) this.elemTracers.push(new Tracers(96, new THREE.Color(ELEM_RGB[e][0], ELEM_RGB[e][1], ELEM_RGB[e][2]), e === 3 ? 0.16 : 0.11));
     this.floaters = new Floaters(this.engine, worldUi);
     this.echoes = new EchoRenderer(this.engine, worldUi);
     this.terminal = new TerminalScreen(this.engine);
     this.terminal.touch = this.input.touch;
     const sc = this.engine.scene;
+    for (let e = 1; e <= 3; e++) sc.add(this.elemTracers[e].mesh);
     sc.add(this.arena.group, this.geodes.group, this.shards.mesh, this.debris.mesh, this.tracers.mesh, this.rings.mesh,
       this.echoes.group, this.terminal.group, this.muzzleLight);
     this.engine.viewScene.add(this.weapon.group);
@@ -239,6 +245,10 @@ export class Game {
     this.stats = derive(this.state);
     this.arena.setZoneLevel(lvl(this.state, 'zone'), animate);
     this.weapon.setTier(this.stats.weaponTier, animate);
+    fixLoadout(this.state);
+    this.weapon.setWeapon(this.state.loadout.weapon, !animate);
+    this.weapon.setElement(this.state.loadout.elem);
+    this.refreshLoadout();
     audio.setLoopDuration(this.stats.duration + CFG.loop.rewindTime);
   }
 
@@ -361,13 +371,18 @@ export class Game {
     // ——— Tir ———
     this.fireCooldown -= dt;
     const wantFire = this.input.fire || (this.input.autoFire && this.aimedGeode >= 0);
-    if (wantFire && this.fireCooldown <= 0 && t < duration) {
-      this.fireCooldown = 1 / this.stats.fireRate;
-      run.shoot(t, p.x, p.eyeY, p.z, p.yaw, p.pitch);
+    if (wantFire && this.fireCooldown <= 0 && t < duration && !this.weapon.swapping) {
+      const lo = this.state.loadout;
+      const heavy = lo.weapon === 1;
+      this.fireCooldown = 1 / (this.stats.fireRate * (heavy ? CFG.w2.fireRate : 1));
+      run.shoot(t, p.x, p.eyeY, p.z, p.yaw, p.pitch, shotKind(lo.weapon, lo.elem));
       this.weapon.fire();
-      audio.shot(this.weapon.tier);
-      this.trauma = Math.min(1, this.trauma + 0.05);
-      this.muzzleLight.intensity = 7;
+      audio.shot(heavy ? 4 : this.weapon.tier);
+      if (heavy) { audio.blast(); this.fovKick = Math.max(this.fovKick, 0.7); }
+      this.trauma = Math.min(1, this.trauma + (heavy ? 0.22 : 0.05));
+      this.muzzleLight.intensity = heavy ? 14 : 7;
+      const c = ELEM_RGB[lo.elem];
+      this.muzzleLight.color.setRGB(c[0] / 3.6, c[1] / 3.6, c[2] / 3.6);
     }
 
     this.consume(run.sim.events);
@@ -401,11 +416,26 @@ export class Game {
           break;
         case 'shot': {
           const m = this.muzzleWorld(this.v);
-          this.tracers.addPath(m.x, m.y, m.z, ev.pts, 0.05 + this.weapon.tier * 0.012);
+          this.elemTracers[ev.elem].addPath(m.x, m.y, m.z, ev.pts, ev.w === 1 ? 0.03 : 0.05 + this.weapon.tier * 0.012);
           break;
         }
+        case 'arc':
+          // Arc de foudre : il part de la géode touchée, pas du canon.
+          this.elemTracers[3].addPath(ev.pts[0], ev.pts[1], ev.pts[2], ev.pts, 0.09);
+          this.rings.add(ev.pts[ev.pts.length - 3], ev.pts[ev.pts.length - 2], ev.pts[ev.pts.length - 1], 1.5, 0.3, 0.9, 0.45, 1.5);
+          break;
+        case 'status':
+          this.geodes.setStatus(ev.g, ev.s, ev.until - ev.t);
+          break;
         case 'hit': {
           this.geodes.hit(ev.g, ev.stage);
+          // Faiblesse ou résistance élémentaire : on le dit, sans inonder l'écran.
+          if (ev.elem > 0 && this.weakHintT <= 0) {
+            const ge = sim.specs[ev.g].elem;
+            if (ge > 0 && ELEM_BEATS[ev.elem] === ge) { this.floaters.add(ev.x, ev.y + 0.9, ev.z, `FAIBLE ×${CFG.elements.weak}`, 'e' + ev.elem, 0.8); this.weakHintT = 0.35; }
+            else if (ge === ev.elem) { this.floaters.add(ev.x, ev.y + 0.9, ev.z, 'résiste', 'resist', 0.8); this.weakHintT = 0.6; }
+          }
+          if (ev.elem > 0 && ev.stage === 2) this.rings.add(ev.x, ev.y, ev.z, 1.1, 0.25, ELEM_RGB[ev.elem][0] * 0.3, ELEM_RGB[ev.elem][1] * 0.3, ELEM_RGB[ev.elem][2] * 0.3);
           this.hud.hit(false);
           audio.hit(ev.stage);
           this.debris.burst(ev.x, ev.y, ev.z, GEODE_LOOK[sim.specs[ev.g].type].shell, 3, 3.5);
@@ -557,6 +587,11 @@ export class Game {
         if (action.id === 'zone') audio.zoneUnlock();
 
         else if (u.family === 'arena' && lvl(s, action.id) === 1) this.hud.toast(`${u.name} : elles apparaîtront dès la prochaine boucle.`);
+        if (lvl(s, action.id) === 1) {
+          if (action.id === 'w2') { this.selectWeapon(1); this.hud.toast('Fracasseur débloqué : touches 1 et 2 (ou molette) pour changer d\'arme.'); }
+          else if (u.family === 'element') { this.setElement(['', 'fire', 'ice', 'volt'].indexOf(action.id)); this.hud.toast(`${u.name} débloqué : touche R (ou clic droit) pour changer d'élément. Des géodes élémentaires vont apparaître.`); }
+        }
+        this.refreshLoadout();
         this.hud.snapWallet(s.shards);
         this.refreshRates();
       } else {
@@ -587,6 +622,83 @@ export class Game {
     this.save();
     this.resume();
     this.hud.showBanner(`Effondrement : ${fmt(this.state.fragments)} Fragments`, `Tous tes gains sont multipliés par ${this.stats.globalMult.toFixed(1).replace('.', ',')}. Reconstruis tes échos.`, 'great');
+  }
+
+  // ————————————————————————————————————————————————————————————————
+  // Équipement : arme et élément en main
+  // ————————————————————————————————————————————————————————————————
+
+  private updateLoadoutInput(): void {
+    const input = this.input;
+    if (this.docked) return;
+    // La molette envoie plusieurs crans d'un coup : on ignore ceux qui arrivent pendant l'échange.
+    if (input.weaponPressed >= 0 && !(input.weaponPressed === 2 && this.weapon.swapping)) {
+      const lo = this.state.loadout;
+      const w = input.weaponPressed === 2 ? 1 - lo.weapon : input.weaponPressed;
+      this.selectWeapon(w);
+    }
+    if (input.elemPressed) this.cycleElement();
+  }
+
+  selectWeapon(w: number): void {
+    const lo = this.state.loadout;
+    if (w === lo.weapon) return;
+    if (!weaponUnlocked(this.state, w)) {
+      audio.deny();
+      this.hud.toast(`${WEAPON_NAMES[w]} : à débloquer au terminal (ARME).`);
+      return;
+    }
+    lo.weapon = w;
+    this.weapon.setWeapon(w);
+    this.fireCooldown = Math.max(this.fireCooldown, 0.3);
+    audio.uiOpen();
+    this.refreshLoadout();
+  }
+
+  cycleElement(): void {
+    const lo = this.state.loadout;
+    let e = lo.elem;
+    for (let i = 0; i < 4; i++) {
+      e = (e + 1) % 4;
+      if (elemUnlocked(this.state, e)) break;
+    }
+    if (e === lo.elem) {
+      if (!elemUnlocked(this.state, 1) && !elemUnlocked(this.state, 2) && !elemUnlocked(this.state, 3)) {
+        audio.deny();
+        this.hud.toast('Aucun élément débloqué : terminal → ÉLÉMENTS.');
+      }
+      return;
+    }
+    this.setElement(e);
+  }
+
+  setElement(e: number): void {
+    if (!elemUnlocked(this.state, e)) return;
+    this.state.loadout.elem = e;
+    this.weapon.setElement(e);
+    audio.uiHover();
+    this.flash = Math.max(this.flash, 0.05);
+    this.refreshLoadout();
+  }
+
+  /** Bandeau d'équipement : visible dès qu'il y a un choix à faire. */
+  private refreshLoadout(): void {
+    const s = this.state, lo = s.loadout;
+    const hasW2 = weaponUnlocked(s, 1);
+    const elems = [1, 2, 3].filter((e) => elemUnlocked(s, e));
+    document.querySelector('.btn-wpn')?.classList.toggle('hidden', !hasW2);
+    document.querySelector('.btn-elem')?.classList.toggle('hidden', elems.length === 0);
+    if (!hasW2 && elems.length === 0) { this.hud.loadout(''); return; }
+    const touch = this.input.touch;
+    let html = '';
+    if (hasW2) {
+      for (let w = 0; w < 2; w++) html += `<span class="chip${lo.weapon === w ? ' on' : ''}">${touch ? '' : `<kbd>${w + 1}</kbd>`}${WEAPON_NAMES[w]}</span>`;
+    }
+    if (elems.length > 0) {
+      if (hasW2) html += '<span class="sep"></span>';
+      html += `<span class="chip on">${touch ? '' : '<kbd>R</kbd>'}<i style="background:${ELEM_CSS[lo.elem]}"></i>${ELEM_NAMES[lo.elem]}</span>`;
+    }
+    this.hud.loadout(html);
   }
 
   private refreshRates(): void {
@@ -673,7 +785,11 @@ export class Game {
       const sim = this.run.sim, spec = sim.specs[this.aimedGeode];
       const hp = Math.max(0, sim.hp[this.aimedGeode]);
       const f = (x: number) => (x % 1 === 0 ? x.toFixed(0) : x.toFixed(1).replace('.', ','));
-      this.hud.tip(`${GEODE_NAME[spec.type]} · vaut <em>${fmt(Math.round(spec.value * sim.params.valueMult * this.stats.globalMult))}</em> éclats · ${f(hp)} / ${f(spec.hp)} PV`);
+      const ge = spec.elem ?? 0;
+      const counter = ge > 0 ? ELEM_BEATS.indexOf(ge) : 0;
+      const name = GEODE_NAME[spec.type] + (ge > 0 ? ` de ${ELEM_NAMES[ge].toLowerCase()}` : '');
+      const weak = ge > 0 ? ` · <span style="color:${ELEM_CSS[counter]}">faible contre ${ELEM_NAMES[counter]}</span>` : '';
+      this.hud.tip(`${name} · vaut <em>${fmt(Math.round(spec.value * sim.params.valueMult * this.stats.globalMult))}</em> éclats · ${f(hp)} / ${f(spec.hp)} PV${weak}`);
       return;
     }
     if (this.nearTerminal() && this.phase !== 'rewind') {
@@ -726,6 +842,8 @@ export class Game {
       if (input.pausePressed) { if (this.docked) this.undock(); else if (input.touch || !input.locked) this.pause(); }
       if (!this.docked && !input.locked && !input.touch && input.tap) input.requestLock();
       this.updateTerminal(dt);
+      this.updateLoadoutInput();
+      this.weakHintT -= dt;
       this.player.update(Math.min(real, 0.05), input, lvl(s, 'zone'), s.settings.sens, s.settings.invertY);
       for (const ev of this.player.events) {
         if (ev === 'jump') audio.jump();
@@ -758,7 +876,7 @@ export class Game {
       this.v.set(this.player.x, this.player.eyeY, this.player.z);
       this.shards.update(dt, this.time, this.v);
       this.debris.update(dt);
-      this.tracers.update(dt);
+      for (const tr of this.elemTracers) tr.update(dt);
       this.rings.update(dt);
       this.floaters.update(dt);
       this.echoes.showLabels = this.mode === 'play';

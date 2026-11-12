@@ -4,7 +4,7 @@
  * La simulation (`npm run sim`) et les tests lisent ce même fichier.
  */
 
-export type Family = 'weapon' | 'loop' | 'arena' | 'magnet';
+export type Family = 'weapon' | 'loop' | 'arena' | 'magnet' | 'element';
 export type GeodeType = 'basic' | 'mobile' | 'armored' | 'golden' | 'explosive';
 
 export interface UpgradeDef {
@@ -70,6 +70,47 @@ export const CFG = {
     chainRadiusBase: 4,
     chainRadiusPerLevel: 0.6,
     chainDamagePerLevel: 0.5,
+  },
+
+  /** Seconde arme : le Fracasseur, une gerbe de plombs en cône. */
+  w2: {
+    pellets: 6,
+    pelletsPerLevel: 1,
+    /** Dégâts d'un plomb, en part des dégâts de l'arme. */
+    damage: 0.4,
+    /** Demi-angle du cône, en radians. */
+    spread: 0.085,
+    /** Cadence relative à celle de l'Éclateur. */
+    fireRate: 0.4,
+    /** Les plombs perdent leur force entre ces deux distances (m). */
+    falloffStart: 9,
+    falloffEnd: 26,
+    falloffMin: 0.25,
+  },
+
+  /** Éléments : feu > glace > foudre > feu. */
+  elements: {
+    weak: 2,
+    resist: 0.5,
+    /** Brûlure : part des dégâts du tir infligée à chaque tic. */
+    burnTick: 0.25,
+    burnDuration: 2,
+    burnBase: 0.12,
+    burnPerLevel: 0.05,
+    /** Gel : la géode devient fragile (dégâts subis augmentés). */
+    brittleDuration: 3,
+    brittleBase: 0.4,
+    brittlePerLevel: 0.12,
+    /** Foudre : arcs vers les géodes voisines. */
+    arcRange: 8,
+    arcCount: 1,
+    arcBase: 0.4,
+    arcPerLevel: 0.1,
+    /** Géodes élémentaires : chance par élément débloqué, plafond, bonus. */
+    geodeChance: 0.14,
+    geodeChanceMax: 0.45,
+    geodeHp: 1.5,
+    geodeValue: 1.8,
   },
 
   magnet: {
@@ -177,6 +218,12 @@ export const UPGRADES: UpgradeDef[] = [
     baseCost: 2500, growth: 5.5, max: 5,
     fx: (l) => (l === 0 ? 'pas d\'explosion' : `explosion : ${pct(CFG.weapon.chainDamagePerLevel * l)} des dégâts, ${fix1(CFG.weapon.chainRadiusBase + CFG.weapon.chainRadiusPerLevel * l)} m`),
   },
+  {
+    id: 'w2', family: 'weapon', name: 'Fracasseur', icon: 20,
+    desc: `Une seconde arme : une gerbe de plombs en cône, dévastatrice de près, faible au-delà de ${CFG.w2.falloffStart} m, et lente. Touche 2 ou molette pour la prendre.`,
+    baseCost: 500, growth: 4.5, max: 6,
+    fx: (l) => (l === 0 ? 'verrouillé' : `${CFG.w2.pellets + CFG.w2.pelletsPerLevel * (l - 1)} plombs × ${pct(CFG.w2.damage)} des dégâts`),
+  },
   // ——— Boucle ———
   {
     id: 'slots', family: 'loop', name: 'Emplacements d\'échos', icon: 5,
@@ -252,6 +299,25 @@ export const UPGRADES: UpgradeDef[] = [
     baseCost: 45, growth: 1.75, max: 10,
     fx: (l) => `${fix1(CFG.magnet.baseSpeed * Math.pow(CFG.magnet.speedGrowth, l))} m/s`,
   },
+  // ——— Éléments ———
+  {
+    id: 'fire', family: 'element', name: 'Feu', icon: 21,
+    desc: `Tes tirs enflamment la géode : elle brûle pendant ${CFG.elements.burnDuration} s. ×${CFG.elements.weak} contre les géodes de glace. Touche R pour changer d'élément.`,
+    baseCost: 400, growth: 4.5, max: 5,
+    fx: (l) => (l === 0 ? 'verrouillé' : `brûlure : ${pct((CFG.elements.burnBase + CFG.elements.burnPerLevel * (l - 1)) / CFG.elements.burnTick)} des dégâts / s`),
+  },
+  {
+    id: 'ice', family: 'element', name: 'Glace', icon: 22,
+    desc: `Tes tirs gèlent la géode : fragile pendant ${CFG.elements.brittleDuration} s, elle subit plus de dégâts de toutes les sources. ×${CFG.elements.weak} contre les géodes de foudre.`,
+    baseCost: 400, growth: 4.5, max: 5,
+    fx: (l) => (l === 0 ? 'verrouillé' : `gel : +${pct(CFG.elements.brittleBase + CFG.elements.brittlePerLevel * (l - 1))} de dégâts`),
+  },
+  {
+    id: 'volt', family: 'element', name: 'Foudre', icon: 23,
+    desc: `Chaque tir qui touche lance un arc vers une géode voisine (${CFG.elements.arcRange} m). ×${CFG.elements.weak} contre les géodes de feu.`,
+    baseCost: 400, growth: 4.5, max: 5,
+    fx: (l) => (l === 0 ? 'verrouillé' : `${CFG.elements.arcCount + Math.floor((l - 1) / 2)} arc${l >= 3 ? 's' : ''} à ${pct(CFG.elements.arcBase + CFG.elements.arcPerLevel * (l - 1))} des dégâts`),
+  },
 ];
 
 export const UPGRADE_BY_ID: Record<string, UpgradeDef> = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
@@ -261,7 +327,17 @@ export const FAMILIES: { id: Family; name: string }[] = [
   { id: 'loop', name: 'BOUCLE' },
   { id: 'arena', name: 'ARÈNE' },
   { id: 'magnet', name: 'AIMANT' },
+  { id: 'element', name: 'ÉLÉMENTS' },
 ];
+
+export const WEAPON_NAMES = ['Éclateur', 'Fracasseur'];
+export const ELEM_NAMES = ['Neutre', 'Feu', 'Glace', 'Foudre'];
+export const ELEM_IDS = ['', 'fire', 'ice', 'volt'];
+/** Élément que chaque élément bat (feu > glace > foudre > feu). */
+export const ELEM_BEATS = [0, 2, 3, 1];
+/** Couleurs HDR des éléments (tirs, cœurs de géodes). L'ambre reste réservé aux éclats. */
+export const ELEM_RGB: [number, number, number][] = [[3.2, 2.1, 0.7], [3.4, 0.9, 0.25], [1.2, 2.4, 3.4], [2.3, 1.1, 3.6]];
+export const ELEM_CSS = ['#f7e3b8', '#ff7a3c', '#9fdcff', '#c79bff'];
 
 export interface PerkDef {
   id: string;

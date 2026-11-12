@@ -25,6 +25,14 @@ export interface LoopParams {
   magnetDelay: number;
   comboWindow: number;
   valueMult: number;
+  /** Format de l'enregistrement : 2 = chaque tir porte son arme et son élément. Absent = ancien format. */
+  fmt?: number;
+  /** Niveau du Fracasseur (0 = verrouillé). */
+  w2?: number;
+  /** Niveaux des éléments (0 = verrouillé). */
+  fire?: number;
+  ice?: number;
+  volt?: number;
 }
 
 export interface GeodeSpec {
@@ -45,6 +53,8 @@ export interface GeodeSpec {
   orbitR: number;
   orbitSpeed: number;
   orbitPhase: number;
+  /** Élément de la géode : 0 neutre, 1 feu, 2 glace, 3 foudre. */
+  elem: number;
 }
 
 export interface Pattern {
@@ -101,6 +111,7 @@ export function buildPattern(p: LoopParams): Pattern {
         orbitR: type === 'mobile' ? 1.7 : 0,
         orbitSpeed: type === 'mobile' ? dir * (1.6 + rng() * 0.6) : 0,
         orbitPhase: rng() * Math.PI * 2,
+        elem: 0,
       };
       specs.push(spec);
       queue.push(spec.id);
@@ -109,6 +120,24 @@ export function buildPattern(p: LoopParams): Pattern {
     }
     queues.push(queue);
   });
+  // ——— Géodes élémentaires ———
+  // Tirage sur un générateur séparé : débloquer un élément ne change ni les positions ni les types.
+  const unlocked: number[] = [];
+  if ((p.fire ?? 0) > 0) unlocked.push(1);
+  if ((p.ice ?? 0) > 0) unlocked.push(2);
+  if ((p.volt ?? 0) > 0) unlocked.push(3);
+  if (unlocked.length > 0) {
+    const E = CFG.elements;
+    const erng = mulberry32(p.seed * 104729 + 17);
+    const chance = Math.min(E.geodeChanceMax, E.geodeChance * unlocked.length);
+    for (const s of specs) {
+      const r = erng(), pick = erng();
+      if (s.type === 'golden' || r >= chance) continue;
+      s.elem = unlocked[Math.floor(pick * unlocked.length)];
+      s.hp *= E.geodeHp;
+      s.value *= E.geodeValue;
+    }
+  }
   return { specs, queues };
 }
 

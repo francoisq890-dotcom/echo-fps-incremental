@@ -52,6 +52,10 @@ La 3D n'est **pas** couverte par l'illimité, et le solde (10) est bien en desso
 
 Après deux échecs, repli en procédural comme prévu par la règle : l'arme (`src/player/weapon.ts`) est construite en code à partir de l'image source, avec quatre paliers visuels. Le corps des échos (humanoïde rigué : 34 à 38 crédits) était hors budget dès le preflight : silhouettes procédurales instanciées (`src/echo/echoRenderer.ts`).
 
+## Session du 12/11
+
+Une planche de 5 icônes (Fracasseur, feu, glace, foudre, géode élémentaire) a été demandée : refusée par Higgsfield (« unlimited generations are not available » depuis Claude Code), rien de débité. Les icônes sont dessinées en code dans le terminal (`src/ui/terminal.ts`, méthode `glyph`). Crédits payants dépensés : toujours 0.
+
 ## Poids
 
 Assets générés livrés dans `public/assets/` : **environ 370 Ko** (objectif : moins de 5 Mo). Les sources brutes (`raw-assets/`, 23 Mo) sont versionnées pour rester disponibles après la fin de l'essai, mais ne sont pas incluses dans le build.

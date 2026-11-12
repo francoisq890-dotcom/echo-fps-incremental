@@ -2,7 +2,7 @@
  * État du jeu et règles d'économie (pures, sans rendu) :
  * coûts, achats, statistiques dérivées, échos et leur rendement, hors-ligne, prestige.
  */
-import { CFG, PERKS, UPGRADES, UPGRADE_BY_ID, damageAt, type PerkDef } from '../config';
+import { CFG, ELEM_IDS, PERKS, UPGRADES, UPGRADE_BY_ID, damageAt, type PerkDef } from '../config';
 import { mulberry32 } from '../core/util';
 import type { LoopParams } from '../echo/pattern';
 
@@ -38,6 +38,8 @@ export interface GameState {
   loops: number;
   bestLoop: number;
   settings: Settings;
+  /** Arme (0 Éclateur, 1 Fracasseur) et élément (0 neutre, 1 feu, 2 glace, 3 foudre) en main. */
+  loadout: { weapon: number; elem: number };
 }
 
 export function newState(now = Date.now()): GameState {
@@ -59,6 +61,7 @@ export function newState(now = Date.now()): GameState {
     loops: 0,
     bestLoop: 0,
     settings: { volume: 0.8, music: 0.5, sens: 1, shake: 1, invertY: false },
+    loadout: { weapon: 0, elem: 0 },
   };
 }
 
@@ -158,7 +161,26 @@ export function loopParams(s: GameState): LoopParams {
     magnetDelay: Math.round(st.magnetDelay * 100) / 100,
     comboWindow: st.comboWindow,
     valueMult: 1 + 0.3 * perk(s, 'gold'),
+    fmt: 2,
+    w2: lvl(s, 'w2'),
+    fire: lvl(s, 'fire'),
+    ice: lvl(s, 'ice'),
+    volt: lvl(s, 'volt'),
   };
+}
+
+/** Une arme / un élément est-il utilisable ? (0 est toujours disponible.) */
+export function weaponUnlocked(s: GameState, w: number): boolean {
+  return w === 0 || (w === 1 && lvl(s, 'w2') > 0);
+}
+export function elemUnlocked(s: GameState, e: number): boolean {
+  return e === 0 || lvl(s, ELEM_IDS[e]) > 0;
+}
+
+/** Remet l'équipement sur quelque chose de débloqué (après import, prestige…). */
+export function fixLoadout(s: GameState): void {
+  if (!weaponUnlocked(s, s.loadout.weapon)) s.loadout.weapon = 0;
+  if (!elemUnlocked(s, s.loadout.elem)) s.loadout.elem = 0;
 }
 
 // ——— Gains ———
@@ -332,6 +354,7 @@ export function doPrestige(s: GameState, perkId: string): boolean {
   s.runEarned = 0;
   s.runTime = 0;
   s.levels = {};
+  s.loadout = { weapon: 0, elem: 0 };
   s.echoes = [];
   s.bestLoop = 0;
   return true;

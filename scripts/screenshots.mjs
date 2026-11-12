@@ -149,7 +149,7 @@ const shots = {
     await page.waitForTimeout(500);
     await page.evaluate(() => { const g = window.__echo; g.player.x = 0; g.player.z = -2.5; g.input.interactPressed = true; });
     await page.waitForTimeout(900);
-    await page.evaluate(() => { const g = window.__echo; g.termAction({ type: 'tab', tab: 4 }); g.player.yaw = -0.45; g.player.pitch = 0.18; });
+    await page.evaluate(() => { const g = window.__echo; g.termAction({ type: 'tab', tab: 5 }); g.player.yaw = -0.45; g.player.pitch = 0.18; });
     await page.waitForTimeout(500);
     await page.screenshot({ path: 'shots/04a-terminal-effondrement.png' });
     await page.evaluate(() => window.__echo.termAction({ type: 'prestige' }));
@@ -187,6 +187,34 @@ const shots = {
     await page.evaluate(() => { const p = window.__echo.player; p.x = 0; p.y = 15; p.z = 4; p.grounded = true; p.yaw = 3.1; p.pitch = -0.35; });
     await page.waitForTimeout(1500);
     await page.screenshot({ path: 'shots/07b-aiguille.png' });
+  },
+
+  async elements() {
+    await boot();
+    await buildState({ dmg: 12, rate: 8, slots: 9, power: 6, zone: 1, mobile: 3, explosive: 2, armored: 2, mrad: 6, mspd: 4, density: 6, w2: 3, fire: 2, ice: 2, volt: 2 }, 6, { shards: 40000, runEarned: 9e5, totalEarned: 9e5 }, 'roam');
+    await page.click('#t-play');
+    await page.waitForTimeout(400);
+    // Fracasseur + feu, au contact des géodes.
+    await page.evaluate(() => { const g = window.__echo; g.selectWeapon(1); g.setElement(1); });
+    await autopilot(true);
+    await page.waitForTimeout(4200);
+    await page.screenshot({ path: 'shots/09-fracasseur-feu.png' });
+    // Éclateur + foudre : arcs entre géodes.
+    await page.evaluate(() => { const g = window.__echo; g.selectWeapon(0); g.setElement(3); });
+    await page.waitForTimeout(2600);
+    await page.screenshot({ path: 'shots/09b-eclateur-foudre.png' });
+    // Glace : géodes gelées.
+    await page.evaluate(() => window.__echo.setElement(2));
+    await page.waitForTimeout(2200);
+    await page.screenshot({ path: 'shots/09c-glace.png' });
+    console.log('elements', JSON.stringify(await info()));
+    await autopilot(false);
+    // Terminal, onglet ÉLÉMENTS.
+    await page.evaluate(() => { const g = window.__echo; g.player.x = 0; g.player.z = -2.5; g.input.interactPressed = true; });
+    await page.waitForTimeout(900);
+    await page.evaluate(() => { const g = window.__echo; g.termAction({ type: 'tab', tab: 4 }); g.player.yaw = 0.3; g.player.pitch = 0.42; });
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: 'shots/09d-terminal-elements.png' });
   },
 
   async perf() {

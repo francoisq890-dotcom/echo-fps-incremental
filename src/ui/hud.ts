@@ -29,6 +29,8 @@ export class Hud {
   private objHint = $('#objective .obj-hint');
   private objBar = $('#objective .obj-bar i');
   private shown = 0;
+  private loadoutEl = $('#loadout');
+  private lastLoadout = '';
   private lastText = { count: '', rate: '', echo: '', tally: '', tip: '', time: '', combo: 0, obj: '' };
 
   setVisible(on: boolean): void { this.root.classList.toggle('hidden', !on); }
@@ -128,6 +130,14 @@ export class Hud {
       this.objHint.textContent = hint;
     }
     this.objBar.style.width = `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%`;
+  }
+
+  /** Arme et élément en main (en bas à gauche). Vide = masqué. */
+  loadout(html: string): void {
+    if (html === this.lastLoadout) return;
+    this.lastLoadout = html;
+    this.loadoutEl.classList.toggle('hidden', !html);
+    this.loadoutEl.innerHTML = html;
   }
 
   objectiveDone(): void {

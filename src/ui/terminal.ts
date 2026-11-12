@@ -138,6 +138,7 @@ export class TerminalScreen {
 
   private icon(index: number, x: number, y: number, size: number, alpha = 1): void {
     const g = this.ctx;
+    if (index >= 20) { this.glyph(index, x, y, size, alpha); return; }
     if (!this.icons) return;
     g.save();
     g.globalAlpha = alpha;
@@ -146,6 +147,37 @@ export class TerminalScreen {
     g.clip();
     // Atlas 5 × 4, cellules de 128 px ; léger zoom pour rogner les marges.
     g.drawImage(this.icons, (index % 5) * 128 + 6, Math.floor(index / 5) * 128 + 6, 116, 116, x, y, size, size);
+    g.restore();
+  }
+
+  /** Icônes 20+ (Fracasseur, feu, glace, foudre) : dessinées ici, sans image. */
+  private glyph(index: number, x: number, y: number, size: number, alpha: number): void {
+    const g = this.ctx, u = size / 100;
+    g.save();
+    g.globalAlpha = alpha;
+    g.translate(x, y);
+    g.fillStyle = '#3a2040';
+    g.beginPath(); g.roundRect(0, 0, size, size, size * 0.18); g.fill();
+    g.lineJoin = 'round';
+    const poly = (pts: number[], fill: string) => {
+      g.fillStyle = fill; g.beginPath();
+      for (let i = 0; i < pts.length; i += 2) (i ? g.lineTo(pts[i] * u, pts[i + 1] * u) : g.moveTo(pts[i] * u, pts[i + 1] * u));
+      g.closePath(); g.fill();
+    };
+    if (index === 20) {
+      poly([14, 34, 72, 34, 72, 48, 14, 48], '#ecc898'); poly([14, 52, 72, 52, 72, 66, 14, 66], '#d9b382');
+      poly([8, 32, 16, 32, 16, 68, 8, 68], '#b65a3c'); poly([70, 30, 88, 36, 88, 64, 70, 70], '#b65a3c');
+      poly([66, 62, 84, 62, 78, 88, 62, 86], '#5a2848'); poly([40, 22, 50, 12, 60, 22, 50, 30], '#ffb81f');
+    } else if (index === 21) {
+      poly([50, 8, 70, 36, 82, 30, 84, 62, 68, 90, 32, 90, 16, 62, 26, 34, 36, 46], '#ff7a3c');
+      poly([50, 40, 62, 60, 60, 78, 50, 86, 40, 78, 38, 60], '#ffd166');
+    } else if (index === 22) {
+      poly([50, 6, 62, 30, 88, 28, 72, 50, 88, 72, 62, 70, 50, 94, 38, 70, 12, 72, 28, 50, 12, 28, 38, 30], '#9fdcff');
+      poly([50, 30, 64, 50, 50, 70, 36, 50], '#e9f8ff');
+    } else {
+      poly([58, 6, 22, 54, 44, 54, 36, 94, 78, 40, 54, 40], '#c79bff');
+      poly([54, 22, 36, 48, 50, 48, 46, 72, 64, 46, 50, 46], '#efe2ff');
+    }
     g.restore();
   }
 
